@@ -1,2 +1,1 @@
-# gpv
-General Purpose Vision
+# General Purpose Vision
