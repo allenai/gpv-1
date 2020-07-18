@@ -1,0 +1,3 @@
+[submodule "third_party/clevr-dataset-gen"]
+	path = third_party/clevr-dataset-gen
+	url = git@github.com:allenai/clevr-dataset-gen.git
