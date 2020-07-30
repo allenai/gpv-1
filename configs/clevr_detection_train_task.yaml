@@ -1,0 +1,11 @@
+train: 
+  images: /home/tanmayg/Data/gpv/clevr_min_objects_1_max_objects_3/train_task/train/images
+  scenes: /home/tanmayg/Data/gpv/clevr_min_objects_1_max_objects_3/train_task/train/scenes
+
+val: 
+  images: /home/tanmayg/Data/gpv/clevr_min_objects_1_max_objects_3/train_task/val/images
+  scenes: /home/tanmayg/Data/gpv/clevr_min_objects_1_max_objects_3/train_task/val/scenes
+
+test: 
+  images: /home/tanmayg/Data/gpv/clevr_min_objects_1_max_objects_3/train_task/test/images
+  scenes: /home/tanmayg/Data/gpv/clevr_min_objects_1_max_objects_3/train_task/test/scenes
