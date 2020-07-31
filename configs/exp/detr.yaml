@@ -1,0 +1,18 @@
+exp_name: trial
+output_dir: /home/tanmayg/Data/gpv/exp/
+
+hydra:
+  run:
+    dir: ${output_dir}/${exp_name}
+
+defaults:
+  - task: clevr_detection_train_task
+
+model:
+  detr:
+    nqueries: 5
+    num_classes: 2
+    hidden_dim: 512
+    nheads: 8
+    num_encoder_layers: 8
+    num_decoder_layers: 8
