@@ -1,6 +1,6 @@
 import torch
 from torch import nn
-from torchvision.models import resnet18
+from torchvision.models import resnet50
 
 class DETR(nn.Module):
     def __init__(
@@ -30,6 +30,7 @@ class DETR(nn.Module):
     def forward(self, inputs):
         x = self.backbone(inputs)
         h = self.conv(x) # BxCxHxW
+        B = h.shape[0]
         H, W = h.shape[-2:]
         pos = torch.cat([
             self.col_embed[:W].unsqueeze(0).repeat(H, 1, 1), # HxWxC/2
@@ -37,5 +38,12 @@ class DETR(nn.Module):
             ], dim=-1).flatten(0, 1).unsqueeze(1) # HWx1xC
         h = self.transformer(
             pos + h.flatten(2).permute(2, 0, 1),    # encoder input: HWxBxC
-            self.query_pos.unsqueeze(1))    # decoder input: nqueriesx1xC
+            self.query_pos.unsqueeze(1).repeat(1,B,1))  # decoder input: nqueriesx1xC
         return self.linear_class(h), self.linear_bbox(h).sigmoid()
+
+
+if __name__=='__main__':
+    detr = DETR(8,2,10,2,3,3)
+    inputs = torch.randn([5,3,100,100])
+    logits, bbox = detr(inputs)
+    import ipdb; ipdb.set_trace()
