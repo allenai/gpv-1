@@ -21,7 +21,7 @@ class DETR(nn.Module):
             nheads,
             num_encoder_layers, 
             num_decoder_layers)
-        self.linear_class = nn.Linear(hidden_dim, num_classes + 1)
+        self.linear_class = nn.Linear(hidden_dim, num_classes)
         self.linear_bbox = nn.Linear(hidden_dim, 4)
         self.query_pos = nn.Parameter(torch.rand(nqueries, hidden_dim))
         self.row_embed = nn.Parameter(torch.rand(50, hidden_dim // 2))
