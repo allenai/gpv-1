@@ -1,0 +1,9 @@
+exp_name: clevr_detection_train_task_dataset
+output_dir: /home/tanmayg/Data/gpv/test/
+
+hydra:
+  run:
+    dir: ${output_dir}/${exp_name}
+
+defaults:
+  - task: clevr_detection_train_task
