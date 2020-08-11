@@ -1,5 +1,6 @@
-exp_name: trial
-output_dir: /home/tanmayg/Data/gpv/exp/
+exp_name: detr
+output_dir: /home/tanmayg/Data/gpv/exp
+exp_dir: ${output_dir}/${exp_name}
 
 hydra:
   run:
@@ -10,9 +11,37 @@ defaults:
 
 model:
   detr:
-    nqueries: 5
-    num_classes: 2
-    hidden_dim: 512
+    num_queries: 5
+    num_classes: 1
+    hidden_dim: 256
     nheads: 8
-    num_encoder_layers: 8
-    num_decoder_layers: 8
+    num_encoder_layers: 6
+    num_decoder_layers: 6
+    backbone: resnet50
+    lr_backbone: 1e-5
+    position_embedding: sine
+    masks: False
+    dilation: False
+    dropout: 0.1
+    dim_feedforward: 2048
+    pre_norm: True
+    aux_loss: True
+    frozenbatchnorm: False
+
+training:
+  num_epochs: 1000
+  batch_size: 16
+  lr: 1e-3
+  weight_decay: 1e-4
+  lr_drop: 500
+  cost_wts:
+    ce: 1
+    bbox: 5
+    giou: 2
+  loss_wts:
+    ce: 1
+    bbox: 5
+    giou: 2
+  eos_coef: 0.1
+  clip_max_norm: 0.1
+  num_vis_samples: 5
