@@ -1,11 +1,13 @@
 import hydra
 import numpy as np
 import skimage.io as skio
+from skimage.transform import rescale
 import torch
 from torch.utils.data import DataLoader, Dataset
 from torch.utils.data.dataloader import default_collate
 
 import utils.io as io
+from utils.detr_misc import collate_fn
 
 
 class ClevrDetectionTrainTask(Dataset):
@@ -16,7 +18,8 @@ class ClevrDetectionTrainTask(Dataset):
     def read_image(self,i):
         img_dir = self.cfg[self.subset].images
         img_path = f'{img_dir}/CLEVR_new_{str(i).zfill(6)}.png'
-        return skio.imread(img_path)[:,:,:3]
+        img = skio.imread(img_path)[:,:,:3]
+        return rescale(img,(self.cfg.scale,self.cfg.scale,1),anti_aliasing=True)
     
     def read_scene(self,i):
         scene_dir = self.cfg[self.subset].scenes
@@ -42,7 +45,15 @@ class ClevrDetectionTrainTask(Dataset):
             
             bboxes.append(bbox)
         
-        return np.array(bboxes).astype(np.float32)
+        return self.cfg.scale*np.array(bboxes).astype(np.float32)
+
+    def normalize_bbox(self,bbox,H,W):
+        bbox = np.copy(bbox)
+        bbox[:,0] = bbox[:,0] / W   # x1 or cx
+        bbox[:,1] = bbox[:,1] / H   # y1 or cy
+        bbox[:,2] = bbox[:,2] / W   # x2 or w
+        bbox[:,3] = bbox[:,3] / H   # y2 or h
+        return bbox
 
     def __len__(self):
         return self.cfg[self.subset].num_images
@@ -50,35 +61,23 @@ class ClevrDetectionTrainTask(Dataset):
     def __getitem__(self,i):
         # Input
         img = self.read_image(i).astype(np.float32)
-        norm_img = (img/255) - 0.5
-        inputs = {
-            'img': img,
-            'norm_img': norm_img
-        }
+        img = (img - 0.5)/0.25
+        img = torch.as_tensor(img,dtype=torch.float32).permute(2,0,1)
+        _,H,W = img.size()
 
         # Output
         scene = self.read_scene(i)
-        bboxes = self.get_bboxes(scene)
-        outputs = {
-            'bboxes': bboxes
+        bboxes_cxcywh = self.get_bboxes(scene,'cxcywh')
+        bboxes_ncxcywh = self.normalize_bbox(bboxes_cxcywh,H,W)
+        labels = np.zeros([bboxes_cxcywh.shape[0]])
+        targets = {
+            'labels': torch.as_tensor(labels,dtype=torch.long),
+            'boxes': torch.as_tensor(bboxes_ncxcywh,dtype=torch.float32)
         }
     
-        return {**inputs, **outputs}
+        return img, targets
 
     def get_collate_fn(self):
-        def collate_fn(batch):
-            batch = [sample for sample in batch if sample is not None]
-            if len(batch)==0:
-                return None
-
-            collated_batch = {}
-            for k in batch[0].keys():
-                collated_batch[k] = [sample[k] for sample in batch]
-                if k not in ['bboxes']:
-                    collated_batch[k] = default_collate(collated_batch[k])
-            
-            return collated_batch
-        
         return collate_fn
                 
     def get_dataloader(self,**kwargs):
@@ -86,9 +85,10 @@ class ClevrDetectionTrainTask(Dataset):
         return DataLoader(self,collate_fn=collate_fn,**kwargs)
 
 
-@hydra.main(config_name="../configs/clevr_detection_train_task.yaml")
+@hydra.main(config_path="../configs",config_name="test/clevr_detection_train_task_dataset")
 def test_dataset(cfg):
-    dataset = ClevrDetectionTrainTask(cfg,'train')
+    print(cfg.pretty())
+    dataset = ClevrDetectionTrainTask(cfg.task.clevr_detection_train,'train')
     dataloader = dataset.get_dataloader(batch_size=2)
     for data in dataloader:
         import ipdb; ipdb.set_trace()
