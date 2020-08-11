@@ -4,7 +4,7 @@ scale: 2
 train: 
   images: /home/tanmayg/Data/gpv/clevr_min_objects_1_max_objects_3/train_task/train/images
   scenes: /home/tanmayg/Data/gpv/clevr_min_objects_1_max_objects_3/train_task/train/scenes
-  num_images: 16 #979
+  num_images: 979
 
 val: 
   images: /home/tanmayg/Data/gpv/clevr_min_objects_1_max_objects_3/train_task/val/images
