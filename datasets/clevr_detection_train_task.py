@@ -77,6 +77,13 @@ class ClevrDetectionTrainTask(Dataset):
     
         return img, targets
 
+    def get_images_from_tensor(self,imgs):
+        """
+        imgs: Bx3xHxW torch.float32 normalized image tensor
+        """
+        imgs = 255*(0.5+0.25*imgs.tensors.permute(0,2,3,1))
+        return imgs
+
     def get_collate_fn(self):
         return collate_fn
                 
