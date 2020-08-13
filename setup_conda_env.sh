@@ -9,8 +9,11 @@
 
 
 ################################################################################
-# conda installs
+# pip installs
 ################################################################################
 # pip install hydra-core --upgrade --pre
 # pip install ipython
-pip install ipdb
+# pip install ipdb
+# pip install tensorboard
+# pip install opencv-python==4.2.0.32
+pip install tqdm
