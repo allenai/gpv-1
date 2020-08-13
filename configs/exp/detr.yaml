@@ -1,6 +1,8 @@
-exp_name: detr
+exp_name: detr_num_queries_${model.detr.num_queries}_lr_${training.lr}
 output_dir: /home/tanmayg/Data/gpv/exp
 exp_dir: ${output_dir}/${exp_name}
+tb_dir: ${exp_dir}/tb_logs
+ckpt_dir: ${exp_dir}/ckpts
 
 hydra:
   run:
@@ -11,7 +13,7 @@ defaults:
 
 model:
   detr:
-    num_queries: 5
+    num_queries: 50
     num_classes: 1
     hidden_dim: 256
     nheads: 8
@@ -29,11 +31,14 @@ model:
     frozenbatchnorm: False
 
 training:
-  num_epochs: 1000
+  num_epochs: 300
   batch_size: 16
-  lr: 1e-3
+  vis_step: 500
+  log_step: 100
+  ckpt_step: 500
+  lr: 1e-4
   weight_decay: 1e-4
-  lr_drop: 500
+  lr_drop: 150
   cost_wts:
     ce: 1
     bbox: 5
@@ -45,3 +50,9 @@ training:
   eos_coef: 0.1
   clip_max_norm: 0.1
   num_vis_samples: 5
+
+eval:
+  step: 1000
+  batch_size: ${training.batch_size}
+  iou_thresh: 0.5
+  
