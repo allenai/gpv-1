@@ -1,0 +1,10 @@
+task_type: train
+subset: train
+output_dir: /home/tanmayg/Data/gpv/clevr_min_objects_1_max_objects_3/${task_type}_task/${subset}/query_detection
+
+hydra:
+  run:
+    dir: ${output_dir}
+
+defaults:
+  - task: clevr_detection_train_task

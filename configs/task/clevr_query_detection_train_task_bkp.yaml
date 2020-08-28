@@ -1,0 +1,17 @@
+# @package _group_/clevr_query_detection_train
+scale: 2
+
+train: 
+  images: /home/tanmayg/Data/gpv/clevr_min_objects_1_max_objects_3/train_task/train/images
+  scenes: /home/tanmayg/Data/gpv/clevr_min_objects_1_max_objects_3/train_task/train/scenes
+  num_images: 16 #979
+
+val: 
+  images: /home/tanmayg/Data/gpv/clevr_min_objects_1_max_objects_3/train_task/val/images
+  scenes: /home/tanmayg/Data/gpv/clevr_min_objects_1_max_objects_3/train_task/val/scenes
+  num_images: 16 #985
+
+test: 
+  images: /home/tanmayg/Data/gpv/clevr_min_objects_1_max_objects_3/train_task/test/images
+  scenes: /home/tanmayg/Data/gpv/clevr_min_objects_1_max_objects_3/train_task/test/scenes
+  num_images: 985
