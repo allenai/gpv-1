@@ -16,4 +16,5 @@
 # pip install ipdb
 # pip install tensorboard
 # pip install opencv-python==4.2.0.32
-pip install tqdm
+# pip install tqdm
+pip install transformers
