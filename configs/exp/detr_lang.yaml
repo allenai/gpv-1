@@ -1,4 +1,4 @@
-exp_name: detr_lang_factored_relevance_tokens_num_queries_${model.detr.num_queries}_lr_${training.lr}_lr_backbone_${model.detr.lr_backbone}_eos_${training.eos_coef}_clip_max_norm_${training.clip_max_norm}_max_samples_${task.clevr_query_detection_train.train.max_samples}_batch_size_${training.batch_size}
+exp_name: detr_lang #_factored_relevance_tokens_num_queries_${model.detr.num_queries}_lr_${training.lr}_lr_backbone_${model.detr.lr_backbone}_eos_${training.eos_coef}_clip_max_norm_${training.clip_max_norm}_max_samples_${task.clevr_query_detection_train.train.max_samples}_batch_size_${training.batch_size}
 output_dir: /home/tanmayg/Data/gpv/exp
 exp_dir: ${output_dir}/${exp_name}
 tb_dir: ${exp_dir}/tb_logs
@@ -13,14 +13,14 @@ defaults:
 
 model:
   detr:
-    num_queries: 5
+    num_queries: 50
     num_classes: 1
     hidden_dim: 256
     nheads: 8
     num_encoder_layers: 6
     num_decoder_layers: 6
     backbone: resnet50
-    lr_backbone: 1e-3
+    lr_backbone: 1e-4
     position_embedding: sine
     masks: False
     dilation: False
@@ -36,13 +36,13 @@ training:
   num_epochs: 300
   batch_size: 16
   num_workers: 8
-  vis_step: 500
-  log_step: 10 #100
-  ckpt_step: 500
-  eval_epoch: 10 #200
+  vis_step: 1000
+  log_step: 10
+  ckpt_step: 1000
+  eval_epoch: 10
   lr: 1e-4
   weight_decay: 1e-4
-  lr_drop: 150 #1000
+  lr_drop: 150
   cost_wts:
     ce: 1
     bbox: 5
