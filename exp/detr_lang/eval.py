@@ -1,4 +1,5 @@
 import os
+import math
 import hydra
 import torch
 import itertools
@@ -17,7 +18,11 @@ def eval_model(model,dataloader,cfg,max_samples=None):
     model.eval()
     cnt = 0
     all_boxes = evaluator.BoundingBoxes()
-    for it,data in enumerate(itertools.islice(tqdm(dataloader),stop=max_samples)):
+    num_max_iter = None
+    if max_samples is not None:
+        num_max_iter = math.ceil(max_samples / dataloader.batch_size)
+    
+    for it,data in enumerate(itertools.islice(tqdm(dataloader),num_max_iter)):
         imgs,queries,targets = data
         imgs = imgs.to(torch.device(0))
 
