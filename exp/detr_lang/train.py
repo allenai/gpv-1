@@ -128,12 +128,15 @@ def train_model(model,dataloaders,cfg):
             if step%cfg.training.vis_step==0:
                 with torch.no_grad():
                     model.eval()
-                    visualize(model,dataloaders['val'],cfg,step)
+                    for subset in ['train','val']:
+                        print(f'Visualizing {subset} ...')
+                        visualize(model,dataloaders[subset],cfg,step,subset)
 
             if step%(10*cfg.training.log_step)==0:
-                print(cfg.exp_name)
+                print('Exp:',cfg.exp_name)
                     
             if step%cfg.training.ckpt_step==0:
+                print('Saving checkpoint ...')
                 torch.save({
                     'model': model.state_dict(),
                     'optimizer': optimizer.state_dict(),
@@ -146,26 +149,34 @@ def train_model(model,dataloaders,cfg):
             step += 1
 
         lr_scheduler.step()
-        
+
         if epoch%cfg.training.eval_epoch==0:
             with torch.no_grad():
                 model.eval()
                 AP = {}
                 for subset, dataloader in dataloaders.items():
-                    AP[subset] = eval_model(model,dataloaders[subset],cfg)[0]['AP']
+                    print(f'Evaluating {subset} ...')
+                    AP[subset] = eval_model(
+                        model,
+                        dataloaders[subset],
+                        cfg,
+                        cfg.training.num_eval_samples[subset])[0]['AP']
                     writer.add_scalar(f'AP/{subset}',AP[subset],epoch)
 
                 print('Epoch:',epoch,'AP',AP)
 
-def visualize(model,dataloader,cfg,step):
-    vis_dir = os.path.join(cfg.exp_dir,'train_vis/'+str(step).zfill(6))
+def visualize(model,dataloader,cfg,step,subset):
+    vis_dir = os.path.join(
+        cfg.exp_dir,
+        f'training_visualizations/{subset}_'+str(step).zfill(6))
     io.mkdir_if_not_exists(vis_dir,recursive=True)
     io.mkdir_if_not_exists(cfg.ckpt_dir,recursive=True)
 
     html_writer = HtmlWriter(os.path.join(vis_dir,'index.html'))
     html_writer.add_element({
         0: 'query',
-        1: 'detection'})
+        1: 'detection',
+        2: 'top5-scores'})
     count = 0
     for data in dataloader:
         imgs, queries, targets = data
@@ -189,18 +200,19 @@ def visualize(model,dataloader,cfg,step):
 
             # visualize prediction
             boxes = pred_boxes[b,topk_ids[b]]
-            
-            print(boxes)
-            print(pred_prob[b,topk_ids[b]])
-            vis_img = imgs[b]
-            for k in range(gt_boxes[b].shape[0]):
-                vis_bbox(boxes[k],vis_img,modify=True)
+            num_gt_boxes = gt_boxes[b].shape[0]
+            vis_img = imgs[b]            
+            for k in range(max(num_gt_boxes,5)):
+                if k < num_gt_boxes:
+                    color = (255,0,0)
+                else:
+                    color = (0,0,255)
+                vis_bbox(boxes[k],vis_img,color=color,modify=True,alpha=0)
 
             # visualize gt
             boxes = gt_boxes[b]
-            #vis_img = img[b]
             for k in range(boxes.shape[0]):
-                vis_bbox(boxes[k],vis_img,color=(0,255,0),modify=True)
+                vis_bbox(boxes[k],vis_img,color=(0,255,0),modify=True,alpha=0)
 
             fname = str(step).zfill(6) + '_' + str(count+b).zfill(4) + '.png'
             skio.imsave(os.path.join(vis_dir,fname),vis_img)
@@ -208,7 +220,7 @@ def visualize(model,dataloader,cfg,step):
             html_writer.add_element({
                 0: queries[b],
                 1: html_writer.image_tag(fname),
-                2: topk_values[b]})
+                2: np.round(topk_values[b],4)})
         
         count += B
     
@@ -223,13 +235,14 @@ def main(cfg):
     
     datasets = {
         'train': ClevrQueryDetectionTrainTask(cfg.task.clevr_query_detection_train,'train'),
-        'val': ClevrQueryDetectionTrainTask(cfg.task.clevr_query_detection_train,'train')}
+        'val': ClevrQueryDetectionTrainTask(cfg.task.clevr_query_detection_train,'val')}
     
     dataloaders = {}
     for subset,dataset in datasets.items():
         dataloaders[subset] = dataset.get_dataloader(
             batch_size=cfg.training.batch_size,
-            num_workers=cfg.training.num_workers)
+            num_workers=cfg.training.num_workers,
+            shuffle=subset=='train')
 
     train_model(model,dataloaders,cfg)
 
