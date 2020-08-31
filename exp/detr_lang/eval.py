@@ -13,11 +13,11 @@ import utils.io as io
 
 import third_party.detection_metrics.lib.Evaluator as evaluator
 
-def eval_model(model,dataloader,cfg):
+def eval_model(model,dataloader,cfg,max_samples=None):
     model.eval()
     cnt = 0
     all_boxes = evaluator.BoundingBoxes()
-    for it,data in enumerate(tqdm(dataloader)):
+    for it,data in enumerate(itertools.islice(tqdm(dataloader),stop=max_samples)):
         imgs,queries,targets = data
         imgs = imgs.to(torch.device(0))
 
