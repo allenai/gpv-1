@@ -54,6 +54,10 @@ training:
   eos_coef: 0.1
   clip_max_norm: 0.1
   num_vis_samples: 16
+  num_eval_samples: 
+    train: 500
+    val: null
+    test: null
 
 # training:
 #   num_epochs: 10000 #300
