@@ -7,8 +7,9 @@ import numpy as np
 import skimage.io as skio
 
 from .models.gpv import GPV
+from .models.losses import AnswerClassification
 from .eval import eval_model
-from datasets.clevr_query_detection_train_task import ClevrQueryDetectionTrainTask
+from datasets.clevr_question_answering_train_task import ClevrQuestionAnsweringTrainTask
 from utils.set_criterion import SetCriterion
 from utils.matcher import HungarianMatcher
 from utils.bbox_utils import vis_bbox
@@ -57,6 +58,8 @@ def train_model(model,dataloaders,cfg):
         
         wts_dict.update(aux_wts_dict)
 
+    wts_dict['loss_answer'] = wts.answer
+
     matcher = HungarianMatcher(
         cost_class=cfg.training.cost_wts.ce,
         cost_bbox=cfg.training.cost_wts.bbox,
@@ -68,6 +71,8 @@ def train_model(model,dataloaders,cfg):
         weight_dict=wts_dict,
         eos_coef=cfg.training.eos_coef,
         losses=['labels','boxes','cardinality']).cuda()
+
+    answer_criterion = AnswerClassification()
 
     step = 0
     for epoch in range(cfg.training.num_epochs):
@@ -81,6 +86,9 @@ def train_model(model,dataloaders,cfg):
             
             outputs = model(imgs,queries)
             losses = set_criterion(outputs,targets)
+            losses['loss_answer'] = answer_criterion(
+                outputs['answer_logits'],
+                torch.stack([t['answer'] for t in targets]))
             
             loss_to_optim = sum(
                 losses[k] * wts_dict[k] for k in losses.keys() if k in wts_dict)
@@ -165,18 +173,25 @@ def train_model(model,dataloaders,cfg):
 
                 print('Epoch:',epoch,'AP',AP)
 
+
 def visualize(model,dataloader,cfg,step,subset):
     vis_dir = os.path.join(
         cfg.exp_dir,
         f'training_visualizations/{subset}_'+str(step).zfill(6))
     io.mkdir_if_not_exists(vis_dir,recursive=True)
     io.mkdir_if_not_exists(cfg.ckpt_dir,recursive=True)
+    word_to_idx = dataloader.dataset.word_to_idx
+    idx_to_word = [None]*len(word_to_idx)
+    for word,idx in word_to_idx.items():
+        idx_to_word[idx] = word
 
     html_writer = HtmlWriter(os.path.join(vis_dir,'index.html'))
     html_writer.add_element({
         0: 'query',
         1: 'detection',
-        2: 'top5-scores'})
+        2: 'gt_answer',
+        3: 'pred_answer',
+        4: 'top5-scores'})
     count = 0
     for data in dataloader:
         imgs, queries, targets = data
@@ -193,6 +208,9 @@ def visualize(model,dataloader,cfg,step,subset):
         topk_values = topk.values.detach().cpu().numpy()
         pred_boxes = outputs['pred_boxes'].detach().cpu().numpy()
         gt_boxes = [t['boxes'].detach().numpy() for t in targets]
+
+        topk_answers = torch.topk(outputs['answer_logits'][-1],k=1,dim=1)
+        topk_answer_ids = topk_answers.indices.detach().cpu().numpy()
         B = pred_boxes.shape[0]
         for b in range(B):
             if count+b >= cfg.training.num_vis_samples:
@@ -202,12 +220,11 @@ def visualize(model,dataloader,cfg,step,subset):
             boxes = pred_boxes[b,topk_ids[b]]
             num_gt_boxes = gt_boxes[b].shape[0]
             vis_img = imgs[b]            
-            for k in range(max(num_gt_boxes,5)):
-                if k < num_gt_boxes:
-                    color = (255,0,0)
-                else:
-                    color = (0,0,255)
-                vis_bbox(boxes[k],vis_img,color=color,modify=True,alpha=0)
+            for k in range(num_gt_boxes,max(num_gt_boxes,5)):
+                vis_bbox(boxes[k],vis_img,color=(0,0,255),modify=True,alpha=0)
+            
+            for k in range(min(num_gt_boxes,5)):
+                vis_bbox(boxes[k],vis_img,color=(255,0,0),modify=True,alpha=0)
 
             # visualize gt
             boxes = gt_boxes[b]
@@ -220,22 +237,24 @@ def visualize(model,dataloader,cfg,step,subset):
             html_writer.add_element({
                 0: queries[b],
                 1: html_writer.image_tag(fname),
-                2: np.round(topk_values[b],4)})
+                2: idx_to_word[targets[b]['answer'].item()],
+                3: idx_to_word[topk_answer_ids[b][0]],
+                4: np.round(topk_values[b],4)})
         
         count += B
     
     html_writer.close()
 
 
-@hydra.main(config_path=f'../../configs',config_name=f"exp/detr_lang")
+@hydra.main(config_path=f'../../configs',config_name=f"exp/detr_lang_qa")
 def main(cfg):
     print(cfg.pretty())
 
     model = GPV(cfg.model).cuda()
     
     datasets = {
-        'train': ClevrQueryDetectionTrainTask(cfg.task.clevr_query_detection_train,'train'),
-        'val': ClevrQueryDetectionTrainTask(cfg.task.clevr_query_detection_train,'val')}
+        'train': ClevrQuestionAnsweringTrainTask(cfg.task.clevr_question_answering_train,'train'),
+        'val': ClevrQuestionAnsweringTrainTask(cfg.task.clevr_question_answering_train,'val')}
     
     dataloaders = {}
     for subset,dataset in datasets.items():
