@@ -162,14 +162,18 @@ def train_model(model,dataloaders,cfg):
             with torch.no_grad():
                 model.eval()
                 AP = {}
+                Accuracy = {}
                 for subset, dataloader in dataloaders.items():
                     print(f'Evaluating {subset} ...')
-                    AP[subset] = eval_model(
+                    metrics = eval_model(
                         model,
                         dataloaders[subset],
                         cfg,
-                        cfg.training.num_eval_samples[subset])[0]['AP']
+                        cfg.training.num_eval_samples[subset])
+                    AP[subset] = metrics['AP']
+                    Accuracy[subset] = metrics['Accuracy']
                     writer.add_scalar(f'AP/{subset}',AP[subset],epoch)
+                    writer.add_scalar(f'Accuracy/{subset}',Accuracy[subset],epoch)
 
                 print('Epoch:',epoch,'AP',AP)
 
