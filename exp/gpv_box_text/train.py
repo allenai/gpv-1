@@ -30,7 +30,7 @@ def train_model(model,dataloaders,cfg):
     backbone_params = [p for n, p in model.named_parameters() \
             if 'backbone' in n and p.requires_grad]
     other_params = [p for n, p in model.named_parameters() \
-            if 'backbone' not in n and 'bert.' not in n and p.requires_grad]
+            if ('backbone' not in n) and ('bert.' not in n) and p.requires_grad]
     param_dicts = [
         {'params': other_params},
         {'params': backbone_params, 'lr': cfg.model.detr.lr_backbone}]
@@ -49,21 +49,29 @@ def train_model(model,dataloaders,cfg):
         for it,data in enumerate(dataloaders['train']):
             imgs, queries, targets = data
             imgs = imgs.to(torch.device(0))
-            targets = [{k: v.cuda() for k, v in t.items()} for t in targets]
+            for t in targets:
+                for k,v in t.items():
+                    if k!='answer':
+                        t[k] = v.cuda()
             
+            answer_tokens,answer_token_ids = model.encode_answers(targets)
+            for i,t in enumerate(targets):
+                t['answer_token_ids'] = answer_token_ids[i,1:]
+
             model.train()
             gpv_criterion.train()
             
-            outputs = model(imgs,queries)
+            outputs = model(imgs,queries,answer_token_ids)
             total_loss, losses = gpv_criterion(outputs,targets)
             
-            optimizer.zero_grad()
-            total_loss.backward()
-            if cfg.training.clip_max_norm > 0:
-                torch.nn.utils.clip_grad_norm_(
-                    backbone_params + other_params, 
-                    cfg.training.clip_max_norm)
-            optimizer.step()
+            if total_loss is not None:
+                optimizer.zero_grad()
+                total_loss.backward()
+                if cfg.training.clip_max_norm > 0:
+                    torch.nn.utils.clip_grad_norm_(
+                        backbone_params + other_params, 
+                        cfg.training.clip_max_norm)
+                optimizer.step()
 
             if step%cfg.training.log_step==0:
                 loss_str = f'Epoch: {epoch} | Iter: {it} | Step: {step} | '
@@ -91,6 +99,8 @@ def train_model(model,dataloaders,cfg):
                     grad_norm(backbone_params + other_params),
                     step)
                 for loss_name,loss_value in losses.items():
+                    if loss_value is None:
+                        continue
                     loss_value = round(loss_value.item(),4)
                     loss_str += f'{loss_name}: {loss_value} | '
                     writer.add_scalar(f'Loss/{loss_name}/train',loss_value,step)
@@ -115,7 +125,7 @@ def train_model(model,dataloaders,cfg):
                     'iter': it,
                     'step': step,
                     'lr': lr_scheduler.get_last_lr()
-                }, os.path.join(cfg.ckpt_dir,str(step).zfill(6)+'.pth'))
+                }, os.path.join(cfg.ckpt_dir,'model.pth'))
 
             step += 1
 
@@ -143,7 +153,7 @@ def visualize(model,dataloader,cfg,step,subset):
         f'training_visualizations/{subset}_'+str(step).zfill(6))
     io.mkdir_if_not_exists(vis_dir,recursive=True)
     io.mkdir_if_not_exists(cfg.ckpt_dir,recursive=True)
-    word_to_idx = dataloader.dataset.datasets['clevr_qa'].word_to_idx
+    word_to_idx = model.word_to_idx
     idx_to_word = [None]*len(word_to_idx)
     for word,idx in word_to_idx.items():
         idx_to_word[idx] = word
@@ -152,15 +162,23 @@ def visualize(model,dataloader,cfg,step,subset):
     html_writer.add_element({
         0: 'query',
         1: 'detection',
-        #2: 'gt_answer',
         2: 'pred_answer',
-        3: 'top5-scores'})
+        3: 'gt_answer',
+        4: 'relevance_scores'})
     count = 0
     for data in dataloader:
         imgs, queries, targets = data
         imgs = imgs.to(torch.device(0))
+        for t in targets:
+            for k,v in t.items():
+                if k!='answer':
+                    t[k] = v.cuda()
+        
+        answer_tokens,answer_token_ids = model.encode_answers(targets)
+        for i,t in enumerate(targets):
+            t['answer_token_ids'] = answer_token_ids[i,1:]
 
-        outputs = model(imgs,queries)
+        outputs = model(imgs,queries,answer_token_ids=None)
         imgs = dataloader.dataset.datasets['clevr_qa'].get_images_from_tensor(imgs)
         imgs = imgs.detach().cpu().numpy().astype(np.uint8)
 
@@ -170,10 +188,15 @@ def visualize(model,dataloader,cfg,step,subset):
         topk_ids = topk.indices.detach().cpu().numpy()
         topk_values = topk.values.detach().cpu().numpy()
         pred_boxes = outputs['pred_boxes'].detach().cpu().numpy()
-        gt_boxes = [t['boxes'].detach().numpy() for t in targets]
+        gt_boxes = [None]*len(targets)
+        for i,t in enumerate(targets):
+            if 'boxes' in t:
+                gt_boxes[i] = t['boxes'].detach().cpu().numpy()
+        #gt_boxes = [t['boxes'].detach().cpu().numpy() for t in targets]
 
-        topk_answers = torch.topk(outputs['answer_logits'][-1],k=1,dim=1)
+        topk_answers = torch.topk(outputs['answer_logits'][-1],k=1,dim=-1)
         topk_answer_ids = topk_answers.indices.detach().cpu().numpy()
+        pred_answers = model.token_ids_to_words(topk_answer_ids[:,:,0])
         B = pred_boxes.shape[0]
         for b in range(B):
             if count+b >= cfg.training.num_vis_samples:
@@ -181,7 +204,10 @@ def visualize(model,dataloader,cfg,step,subset):
 
             # visualize prediction
             boxes = pred_boxes[b,topk_ids[b]]
-            num_gt_boxes = gt_boxes[b].shape[0]
+            if gt_boxes[b] is None:
+                num_gt_boxes = 0
+            else:
+                num_gt_boxes = gt_boxes[b].shape[0]
             vis_img = imgs[b]            
             for k in range(num_gt_boxes,max(num_gt_boxes,5)):
                 vis_bbox(boxes[k],vis_img,color=(0,0,255),modify=True,alpha=0)
@@ -191,8 +217,9 @@ def visualize(model,dataloader,cfg,step,subset):
 
             # visualize gt
             boxes = gt_boxes[b]
-            for k in range(boxes.shape[0]):
-                vis_bbox(boxes[k],vis_img,color=(0,255,0),modify=True,alpha=0)
+            if boxes is not None:
+                for k in range(boxes.shape[0]):
+                    vis_bbox(boxes[k],vis_img,color=(0,255,0),modify=True,alpha=0)
 
             fname = str(step).zfill(6) + '_' + str(count+b).zfill(4) + '.png'
             skio.imsave(os.path.join(vis_dir,fname),vis_img)
@@ -200,9 +227,9 @@ def visualize(model,dataloader,cfg,step,subset):
             html_writer.add_element({
                 0: queries[b],
                 1: html_writer.image_tag(fname),
-                #2: idx_to_word[targets[b]['answer'].item()],
-                2: idx_to_word[topk_answer_ids[b][0]],
-                3: np.round(topk_values[b],4)})
+                2: pred_answers[b],
+                3: answer_tokens[b],
+                4: np.round(topk_values[b],4)})
         
         count += B
     
