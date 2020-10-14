@@ -12,16 +12,20 @@ class AnswerClassification(nn.Module):
         self.ce_loss = nn.CrossEntropyLoss(reduce=False)
 
     def forward(self,outputs,targets):
-        idxs, filtered_targets = zip(
-            *[(i,t) for i,t in enumerate(targets) if 'answer' in t])
+        idx_filtered_targets = [(
+            i,t) for i,t in enumerate(targets) if 'answer' in t]
+        if len(idx_filtered_targets)==0:
+            return {'loss_answer':None}
+
+        idxs, filtered_targets = zip(*idx_filtered_targets)
         idxs = list(idxs)
         logits = outputs['answer_logits'][:,idxs]
-        L,B,C = logits.size()
-        logits = logits.permute(1,2,0) # BxCxL
-        tgts = torch.stack([t['answer'] for t in filtered_targets])
-        tgts = tgts.view(B,1).repeat(1,L)
-        losses = self.ce_loss(logits,tgts)
-        return {'loss_answer':losses.mean(0).sum()}
+        L,B,S,V = logits.size()
+        logits = logits.permute(1,3,2,0) # BxVxSxL
+        tgts = torch.stack([t['answer_token_ids'] for t in filtered_targets])
+        tgts = tgts.view(B,S,1).repeat(1,1,L)
+        losses = self.ce_loss(logits,tgts) # BxSXL
+        return {'loss_answer':losses.mean(0).sum(0).sum()}
 
 
 class Localization(nn.Module):
@@ -54,8 +58,16 @@ class Localization(nn.Module):
             losses=['labels','boxes'])
 
     def forward(self,outputs,targets):
-        idxs, filtered_targets = zip(
-            *[(i,t) for i,t in enumerate(targets) if 'boxes' in t])
+        idx_filtered_targets = [
+            (i,t) for i,t in enumerate(targets) if 'boxes' in t]
+        if len(idx_filtered_targets)==0:
+            return {
+                'loss_ce': None,
+                'loss_bbox': None,
+                'loss_giou': None
+            }
+        
+        idxs, filtered_targets = zip(*idx_filtered_targets)
         idxs = list(idxs)
         filtered_outputs = {
             'pred_logits': outputs['pred_logits'][idxs],
@@ -101,9 +113,19 @@ class GPVCriterion(nn.Module):
             losses = criterion(outputs,targets)
             loss_dict.update(losses)
         
+        all_losses_none = True
+        for k,v in loss_dict.items():
+            if v is not None:
+                all_losses_none = False
+                break
+        
+        if all_losses_none is True:
+            return None, loss_dict
+
         total_loss = 0
         for k,wt in self.loss_wts.items():
-            total_loss += wt*loss_dict[k]
+            if loss_dict[k] is not None:
+                total_loss += wt*loss_dict[k]
         
         return total_loss, loss_dict
 
