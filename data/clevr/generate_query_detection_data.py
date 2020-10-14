@@ -17,7 +17,7 @@ def generate_single_attribute_query_detections(scene_info,attribute_type='shape'
             if obj_info[attribute_type]==attribute:
                 obj_ids.append(i)
         
-        query_to_object_ids[f'{attribute_type} is {attribute}'] = obj_ids
+        query_to_object_ids[f'find objects whose {attribute_type} is {attribute}'] = obj_ids
     
     return query_to_object_ids
 

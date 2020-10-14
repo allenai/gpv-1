@@ -13,7 +13,7 @@ def generate_questions(scene_info,query_to_object_id,attribute_type='material'):
         obj_info = objects[obj_id]
         samples.append({
             'image': scene_info['image_filename'],
-            'query': f'{attribute_type} of {query}',
+            'query': f'what is the {attribute_type} of {query}',
             'objects': [obj_info],
             'answer': obj_info[attribute_type],
         })
