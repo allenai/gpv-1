@@ -16,13 +16,13 @@ class ClevrQuestionAnsweringTrainTask(Dataset):
         self.cfg = cfg
         self.subset = subset
         self.samples = io.load_json_object(self.cfg[self.subset].samples)
-        self.vocab=[
-            'small',
-            'large',
-            'rubber',
-            'metal'
-        ]
-        self.word_to_idx = {w:i for i,w in enumerate(self.vocab)}
+        # self.vocab=[
+        #     'small',
+        #     'large',
+        #     'rubber',
+        #     'metal'
+        # ]
+        # self.word_to_idx = {w:i for i,w in enumerate(self.vocab)}
 
     def read_image(self,img_name):
         img_dir = self.cfg[self.subset].images
@@ -82,8 +82,9 @@ class ClevrQuestionAnsweringTrainTask(Dataset):
         labels = np.zeros([bboxes_cxcywh.shape[0]])
         targets = {
             'labels': torch.as_tensor(labels,dtype=torch.long),
-            'boxes': torch.as_tensor(bboxes_ncxcywh,dtype=torch.float32),
-            'answer': torch.as_tensor(self.word_to_idx[sample['answer']],dtype=torch.long)
+            #'boxes': torch.as_tensor(bboxes_ncxcywh,dtype=torch.float32),
+            #'answer': torch.as_tensor(self.word_to_idx[sample['answer']],dtype=torch.long)
+            'answer': sample['answer']
         }
         query = sample['query']
     

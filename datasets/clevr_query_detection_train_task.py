@@ -16,6 +16,8 @@ class ClevrQueryDetectionTrainTask(Dataset):
         self.cfg = cfg
         self.subset = subset
         self.samples = io.load_json_object(self.cfg[self.subset].samples)
+        self.vocab = []
+        
 
     def read_image(self,img_name):
         img_dir = self.cfg[self.subset].images
