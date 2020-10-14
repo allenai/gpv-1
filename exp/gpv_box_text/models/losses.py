@@ -36,20 +36,6 @@ class Localization(nn.Module):
             cost_bbox=cfg.cost_wts.bbox,
             cost_giou=cfg.cost_wts.giou)
 
-        # wts = cfg.training.loss_wts
-        # wts_dict = {
-        #     'loss_ce': wts.ce,
-        #     'loss_bbox': wts.bbox,
-        #     'loss_giou': wts.giou,
-        # }
-
-        # if cfg.model.detr.aux_loss:
-        #     aux_wts_dict = {}
-        #     for i in range(cfg.model.detr.num_decoder_layers - 1):
-        #         aux_wts_dict.update({f'{k}_{i}': v for k, v in wts_dict.items()})
-            
-        #     wts_dict.update(aux_wts_dict)
-
         self.set_criterion = SetCriterion(
             num_classes=cfg.num_classes,
             matcher=self.matcher,
@@ -70,7 +56,7 @@ class Localization(nn.Module):
         idxs, filtered_targets = zip(*idx_filtered_targets)
         idxs = list(idxs)
         filtered_outputs = {
-            'pred_logits': outputs['pred_logits'][idxs],
+            'pred_relevance_logits': outputs['pred_relevance_logits'][idxs],
             'pred_boxes': outputs['pred_boxes'][idxs]
         }
 
@@ -78,7 +64,7 @@ class Localization(nn.Module):
             aux_outputs = []
             for aux_output in outputs['aux_outputs']:
                 aux_outputs.append({
-                    'pred_logits': aux_output['pred_logits'][idxs],
+                    'pred_relevance_logits': aux_output['pred_relevance_logits'][idxs],
                     'pred_boxes': aux_output['pred_boxes'][idxs]
                 })
             filtered_outputs['aux_outputs'] = aux_outputs

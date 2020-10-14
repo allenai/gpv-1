@@ -183,7 +183,7 @@ def visualize(model,dataloader,cfg,step,subset):
         imgs = imgs.detach().cpu().numpy().astype(np.uint8)
 
         # visualize predictions
-        pred_prob = outputs['pred_logits'].softmax(-1)
+        pred_prob = outputs['pred_relevance_logits'].softmax(-1)
         topk = torch.topk(pred_prob[:,:,0],k=5,dim=1)
         topk_ids = topk.indices.detach().cpu().numpy()
         topk_values = topk.values.detach().cpu().numpy()

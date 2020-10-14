@@ -34,7 +34,7 @@ class HungarianMatcher(nn.Module):
         """ Performs the matching
         Params:
             outputs: This is a dict that contains at least these entries:
-                 "pred_logits": Tensor of dim [batch_size, num_queries, num_classes] with the classification logits
+                 "pred_relevance_logits": Tensor of dim [batch_size, num_queries, num_classes] with the classification logits
                  "pred_boxes": Tensor of dim [batch_size, num_queries, 4] with the predicted box coordinates
             targets: This is a list of targets (len(targets) = batch_size), where each target is a dict containing:
                  "labels": Tensor of dim [num_target_boxes] (where num_target_boxes is the number of ground-truth
@@ -47,10 +47,10 @@ class HungarianMatcher(nn.Module):
             For each batch element, it holds:
                 len(index_i) = len(index_j) = min(num_queries, num_target_boxes)
         """
-        bs, num_queries = outputs["pred_logits"].shape[:2]
+        bs, num_queries = outputs["pred_relevance_logits"].shape[:2]
 
         # We flatten to compute the cost matrices in a batch
-        out_prob = outputs["pred_logits"].flatten(0, 1).softmax(-1)  # [batch_size * num_queries, num_classes]
+        out_prob = outputs["pred_relevance_logits"].flatten(0, 1).softmax(-1)  # [batch_size * num_queries, num_classes]
         out_bbox = outputs["pred_boxes"].flatten(0, 1)  # [batch_size * num_queries, 4]
 
         # Also concat the target labels and boxes

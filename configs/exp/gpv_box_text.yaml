@@ -1,4 +1,4 @@
-exp_name: gpv_box_cap_better_query_det_only_box_sup_vis_wo_teacher_forcing_relevance_fuse_hs_fuse_text_vocab_load #_factored_relevance_tokens_num_queries_${model.detr.num_queries}_lr_${training.lr}_lr_backbone_${model.detr.lr_backbone}_eos_${training.eos_coef}_clip_max_norm_${training.clip_max_norm}_max_samples_${task.clevr_query_detection_train.train.max_samples}_batch_size_${training.batch_size}
+exp_name: gpv_box_text_refactor_answer_input_embed_bs_32
 output_dir: /home/tanmayg/Data/gpv/exp
 exp_dir: ${output_dir}/${exp_name}
 tb_dir: ${exp_dir}/tb_logs
@@ -45,7 +45,25 @@ model:
     pre_norm: True
     aux_loss: True
     frozenbatchnorm: False
-    num_fusion_layers: 3
+  bert_joiner:
+    bert_dim: 768
+    out_dim: ${model.detr.hidden_dim}
+  vl_transformer:
+    hidden_dim: ${model.detr.hidden_dim}
+    dropout: ${model.detr.dropout}
+    nheads: ${model.detr.nheads}
+    num_layers: 3
+  lv_transformer:
+    hidden_dim: ${model.detr.hidden_dim}
+    dropout: ${model.detr.dropout}
+    nheads: ${model.detr.nheads}
+    num_layers: 3
+  text_decoder:
+    hidden_dim: ${model.detr.hidden_dim}
+    dropout: ${model.detr.dropout}
+    nheads: ${model.detr.nheads}
+    num_layers: 3
+
 
 losses:
   AnswerClassification:
@@ -67,26 +85,16 @@ losses:
     num_classes: ${model.detr.num_classes}
 
 training:
-  num_epochs: 300 #1000 
-  batch_size: 16
+  num_epochs: 300
+  batch_size: 32 #16
   num_workers: 8
-  vis_step: 1000 #100
+  vis_step: 2000
   log_step: 10
-  ckpt_step: 1000
-  eval_epoch: 10 #100
+  ckpt_step: 2000
+  eval_epoch: 10
   lr: 1e-4
   weight_decay: 1e-4
-  lr_drop: 150 #500 
-  # cost_wts:
-  #   ce: 1
-  #   bbox: 5
-  #   giou: 2
-  # loss_wts:
-  #   ce: 1
-  #   bbox: 5
-  #   giou: 2
-  #   answer: 1
-  # eos_coef: 0.1
+  lr_drop: 150
   clip_max_norm: 0.1
   num_vis_samples: 24
   num_eval_samples: 
@@ -96,29 +104,6 @@ training:
   losses:
     - AnswerClassification
     - Localization
-
-# training:
-#   num_epochs: 10000 #300
-#   batch_size: 16
-#   num_workers: 8
-#   vis_step: 100 #500
-#   log_step: 10 #100
-#   ckpt_step: 1000 #500
-#   eval_epoch: 200 #10
-#   lr: 1e-4
-#   weight_decay: 1e-4
-#   lr_drop: 1000 #150
-#   cost_wts:
-#     ce: 1
-#     bbox: 5
-#     giou: 2
-#   loss_wts:
-#     ce: 1
-#     bbox: 5
-#     giou: 2
-#   eos_coef: 1
-#   clip_max_norm: 0.1
-#   num_vis_samples: 16
 
 eval:
   step: 18000

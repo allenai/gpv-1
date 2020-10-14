@@ -19,6 +19,7 @@ class AnswerHead(nn.Module):
             vocab_embed = 0.1*torch.randn([len(self.vocab),hidden_dim])
         else:
             vocab_embed = torch.FloatTensor(vocab_embed)
+            print('Using precomputed vocab embeddings')
         
         self.vocab_embed = nn.Parameter(vocab_embed,requires_grad=False)
         self.classifier_transform = classifier_transform

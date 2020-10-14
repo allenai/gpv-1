@@ -11,35 +11,69 @@ import utils.io as io
 nltk.download('punkt')
 
 
+def build_transformer_decoder(cfg):
+    decoder_layer = nn.TransformerDecoderLayer(
+        d_model=cfg.hidden_dim,
+        dropout=cfg.dropout,
+        nhead=cfg.nheads)
+    
+    return nn.TransformerDecoder(decoder_layer,cfg.num_layers)
+
+
+class AnswerInputEmbedding(nn.Module):
+    def __init__(self,weight,transform):
+        super().__init__()
+        self.transform = transform
+        self.embedding_layer = nn.Embedding.from_pretrained(
+            weight,freeze=True)
+    
+    def forward(self,token_ids):
+        embed = self.embedding_layer(token_ids)
+        return self.transform(embed)
+        
+
 class GPV(nn.Module):
     def __init__(self,cfg):
         super().__init__()
         self.cfg = cfg
+
+        # visual stream
         self.detr = create_detr(cfg.detr)
+
+        # text stream
         self.bert = Bert()
-        self.bert_joiner = nn.Linear(768,cfg.detr.hidden_dim)
-        self.fusion_transformer = build_fusion_transformer(cfg.detr)
-        self.text_fusion_transformer = build_fusion_transformer(cfg.detr)
-        self.text_decoder = build_text_decoder(cfg.detr)
-        self.answer_head = build_answer_head(cfg,self.bert_joiner)
-        self.vocab = self.answer_head.vocab
-        #self.vocab = io.load_json_object(cfg.vocab)
-        self.word_to_idx = {w:i for i,w in enumerate(self.vocab)}
-        #self.answer_head = nn.Linear(cfg.detr.hidden_dim,len(self.vocab))
-        self.answer_input_embedings = nn.Embedding(
-            len(self.vocab),
-            cfg.detr.hidden_dim)
-        self.relevance_embed = nn.Linear(
+        self.bert_joiner = nn.Linear(
+            cfg.bert_joiner.bert_dim,
+            cfg.bert_joiner.out_dim)
+        
+        # encode vision with language context and vice versa
+        self.vl_transformer = build_transformer_decoder(cfg.vl_transformer)
+        self.lv_transformer = build_transformer_decoder(cfg.lv_transformer)
+
+        # relevance predictor that operates on vl output
+        self.relevance_predictor = nn.Linear(
             cfg.detr.hidden_dim,
             cfg.detr.num_classes + 1)
+
+        # text decoder
+        self.text_decoder = build_transformer_decoder(cfg.text_decoder)
+        self.answer_head = build_answer_head(cfg,self.bert_joiner)
+        self.vocab = self.answer_head.vocab
+        self.word_to_idx = {w:i for i,w in enumerate(self.vocab)}
+        self.answer_input_embedings = AnswerInputEmbedding(
+            self.answer_head.vocab_embed.data,self.bert_joiner)
+        # self.answer_input_embedings = nn.Embedding(
+        #     len(self.vocab),
+        #     cfg.text_decoder.hidden_dim)
+    
+        # indicator tokens
         self.vision_token = nn.Parameter(
             0.1*torch.randn([cfg.detr.hidden_dim]),requires_grad=True)
         self.lang_token = nn.Parameter(
             0.1*torch.randn([cfg.detr.hidden_dim]),requires_grad=True)
         self.relevance_tokens = nn.Parameter(
             0.1*torch.randn([2,cfg.detr.hidden_dim]),requires_grad=True)
-        # self.cls_token = nn.Parameter(
-        #     0.1*torch.randn([cfg.detr.hidden_dim]),requires_grad=True)
+
         
     def forward(self,images,queries,answer_token_ids):
         outputs = self.detr(images)
@@ -49,39 +83,43 @@ class GPV(nn.Module):
         
         query_encodings = self.bert_joiner(query_encodings.detach())
 
-        fused_hs = self.fuse(outputs,query_encodings) # LxBxRxD
-
-        fused_logits = self.relevance_embed(fused_hs)
-        outputs['pred_logits'] = outputs['pred_logits'] + fused_logits[-1] #BxRx2
+        # vl encoding and relevance prediction
+        vl_hs = self.encode_v_with_l_context(outputs,query_encodings) # LxBxRxD
+        relevance_logits = self.relevance_predictor(vl_hs)
+        outputs['pred_relevance_logits'] = \
+            outputs['pred_relevance_logits'] + relevance_logits[-1] #BxRx2
         if self.cfg.detr.aux_loss:
             for i,aux_outputs in enumerate(outputs['aux_outputs']):
-                aux_outputs['pred_logits'] = \
-                    aux_outputs['pred_logits'] + fused_logits[i]
+                aux_outputs['pred_relevance_logits'] = \
+                    aux_outputs['pred_relevance_logits'] + relevance_logits[i]
+        
+        # condition vl encoding on relevance prediction
+        vl_hs = self.condition_on_relevance(
+            outputs['pred_relevance_logits'],vl_hs)
 
-        text_fused_hs = self.fuse_text(outputs,query_encodings)
+        # lv encoding
+        lv_hs = self.encode_l_with_v_context(outputs,query_encodings)
 
-        fused_hs = self.condition_on_relevance(outputs['pred_logits'],fused_hs)
-        memory = torch.cat((fused_hs,text_fused_hs),2)
+        # concat vl and lv to create a memory for text decoding
+        memory = torch.cat((vl_hs,lv_hs),2)
         L,B,_,D = memory.size()
-
-        #target = self.cls_token.view(1,1,1,D).repeat(L,B,1,1)
         
         if answer_token_ids is None:
+            # sample text without teacher forcing
             cls_token_id = torch.LongTensor(
                 [self.word_to_idx['__cls__']]).cuda()
             target_token_ids = cls_token_id.view(1,1,1).repeat(L,B,1)
             for t in range(self.cfg.max_text_len-1):
                 target = self.answer_input_embedings(target_token_ids)
-                #target = target.view(1,*target.size()).repeat(L,1,1,1)
                 answer_logits = self.decode_text(target,memory) # LxBxSxV
                 top_ids = torch.topk(answer_logits,k=1,dim=-1).indices[:,:,-1] # LxBx1
                 target_token_ids = torch.cat((target_token_ids,top_ids),-1)
             
             target = self.answer_input_embedings(target_token_ids) # BxTXD
-            #target = target.view(1,*target.size()).repeat(L,1,1,1)
             outputs['answer_logits'] = self.decode_text(target,memory)
 
         else:
+            # sample text with teacher forcing
             target = self.answer_input_embedings(answer_token_ids) # BxTXD
             target = target.view(1,*target.size()).repeat(L,1,1,1)
             outputs['answer_logits'] = self.decode_text(target,memory)[:,:,:-1]
@@ -143,9 +181,10 @@ class GPV(nn.Module):
         return self.answer_input_embedings(
             torch.LongTensor([self.word_to_idx['__cls__']]).cuda())[0]
 
-    def fuse_text(self,outputs,query_encodings):
+    def encode_l_with_v_context(self,outputs,query_encodings):
         detr_hs = outputs['detr_hs']
-        detr_hs = self.condition_on_relevance(outputs['pred_logits'],detr_hs)
+        detr_hs = self.condition_on_relevance(
+            outputs['pred_relevance_logits'],detr_hs)
         L = detr_hs.size(0)
         B,T,D = query_encodings.size()
         query_encodings = query_encodings.view(1,B,T,D).repeat(L,1,1,1)
@@ -155,13 +194,13 @@ class GPV(nn.Module):
         fused_hs = torch.cat(
             (detr_hs+vision_token,query_encodings+lang_token),2)
         fused_hs = fused_hs.view(L*B,-1,D).permute(1,0,2)
-        fused_hs = self.text_fusion_transformer(
+        fused_hs = self.lv_transformer(
             fused_hs[self.cfg.detr.num_queries:],
             fused_hs[:self.cfg.detr.num_queries])
         fused_hs = fused_hs.permute(1,0,2).view(L,B,-1,D)
         return fused_hs
 
-    def fuse(self,outputs,query_encodings):
+    def encode_v_with_l_context(self,outputs,query_encodings):
         detr_hs = outputs['detr_hs']
         L = detr_hs.size(0)
         B,T,D = query_encodings.size()
@@ -171,7 +210,7 @@ class GPV(nn.Module):
         fused_hs = torch.cat(
             (detr_hs+vision_token,query_encodings+lang_token),2)
         fused_hs = fused_hs.view(L*B,-1,D).permute(1,0,2)
-        fused_hs = self.fusion_transformer(
+        fused_hs = self.vl_transformer(
             fused_hs[:self.cfg.detr.num_queries],
             fused_hs[self.cfg.detr.num_queries:])
         fused_hs = fused_hs.permute(1,0,2).view(L,B,-1,D)
@@ -182,7 +221,6 @@ class GPV(nn.Module):
         _,_,Tt,D = target.size()
         memory = memory.view(L*B,Tm,D).permute(1,0,2)
         target = target.view(L*B,Tt,D).permute(1,0,2)
-        #import ipdb; ipdb.set_trace()
         tgt_mask = torch.zeros((Tt,Tt))
         for t in range(Tt):
             for j in range(t+1,Tt):
@@ -191,17 +229,4 @@ class GPV(nn.Module):
         tgt_mask = tgt_mask.byte().cuda()#.view(T,T).repeat(12,1,1)
         to_decode = self.text_decoder(
             target,memory,tgt_mask).permute(1,0,2).view(L,B,-1,D)
-        return self.answer_head(to_decode)
-        #return self.answer_head(to_decode[:,:,:-1]) # LxBxSxV
-
-
-def build_fusion_transformer(cfg):
-    decoder_layer = nn.TransformerDecoderLayer(
-        d_model=cfg.hidden_dim,
-        dropout=cfg.dropout,
-        nhead=cfg.nheads)
-    
-    return nn.TransformerDecoder(decoder_layer,cfg.num_fusion_layers)
-
-
-build_text_decoder = build_fusion_transformer
+        return self.answer_head(to_decode) # LxBxTtxV
