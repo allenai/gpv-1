@@ -5,6 +5,7 @@ from torch.utils.data import DataLoader, Dataset
 from utils.detr_misc import collate_fn as detr_collate_fn
 from .clevr_query_detection_train_task import ClevrQueryDetectionTrainTask
 from .clevr_question_answering_train_task import ClevrQuestionAnsweringTrainTask
+from .clevr_captioning_train_task import ClevrCaptioningTrainTask
 
 class LearningTasks(Dataset):
     def __init__(self,learning_datasets,task_configs,subset):
