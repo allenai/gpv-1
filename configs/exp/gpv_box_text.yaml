@@ -1,4 +1,4 @@
-exp_name: gpv_box_text #_factored_relevance_tokens_num_queries_${model.detr.num_queries}_lr_${training.lr}_lr_backbone_${model.detr.lr_backbone}_eos_${training.eos_coef}_clip_max_norm_${training.clip_max_norm}_max_samples_${task.clevr_query_detection_train.train.max_samples}_batch_size_${training.batch_size}
+exp_name: gpv_box_cap_better_query_det_only_box_sup_vis_wo_teacher_forcing_relevance_fuse_hs_fuse_text_vocab_load #_factored_relevance_tokens_num_queries_${model.detr.num_queries}_lr_${training.lr}_lr_backbone_${model.detr.lr_backbone}_eos_${training.eos_coef}_clip_max_norm_${training.clip_max_norm}_max_samples_${task.clevr_query_detection_train.train.max_samples}_batch_size_${training.batch_size}
 output_dir: /home/tanmayg/Data/gpv/exp
 exp_dir: ${output_dir}/${exp_name}
 tb_dir: ${exp_dir}/tb_logs
@@ -20,7 +20,14 @@ learning_datasets:
     task_config: qa
     name: clevr_qa
 
+  ClevrCaptioningTrainTask:
+    task_config: cap
+    name: clevr_cap
+
 model:
+  vocab: /home/tanmayg/Data/gpv/clevr_min_objects_1_max_objects_3/train_task/vocab.json
+  vocab_embed: /home/tanmayg/Data/gpv/clevr_min_objects_1_max_objects_3/train_task/vocab_embed.npy
+  max_text_len: 6
   detr:
     num_queries: 50
     num_classes: 1
@@ -81,7 +88,7 @@ training:
   #   answer: 1
   # eos_coef: 0.1
   clip_max_norm: 0.1
-  num_vis_samples: 16
+  num_vis_samples: 24
   num_eval_samples: 
     train: 500
     val: null
