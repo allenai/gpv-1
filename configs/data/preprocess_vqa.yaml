@@ -1,0 +1,19 @@
+exp_name: original_split
+output_dir: /home/tanmayg/Data/gpv/learning_phase_data/vqa
+exp_dir: ${output_dir}/${exp_name}
+subset: train
+
+hydra:
+  run:
+    dir: ${exp_dir}
+
+download_dir: /home/tanmayg/Data/gpv/learning_phase_data/vqa
+
+questions:
+  train: v2_OpenEnded_mscoco_train2014_questions.json
+  val: v2_OpenEnded_mscoco_val2014_questions.json
+  testdev: v2_OpenEnded_mscoco_test-dev2015_questions.json
+  test: v2_OpenEnded_mscoco_test2015_questions.json
+anno:
+  train: v2_mscoco_train2014_annotations.json
+  val: v2_mscoco_val2014_annotations.json

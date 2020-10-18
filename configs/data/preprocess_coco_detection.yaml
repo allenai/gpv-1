@@ -1,0 +1,15 @@
+exp_name: original_split
+output_dir: /home/tanmayg/Data/gpv/learning_phase_data/coco_detection
+exp_dir: ${output_dir}/${exp_name}
+subset: train
+
+hydra:
+  run:
+    dir: ${exp_dir}
+
+download_dir: /home/tanmayg/Data/gpv/learning_phase_data/coco/anno/annotations
+
+instances:
+  train: instances_train2014.json
+  val: instances_val2014.json
+  test: image_info_test2014.json

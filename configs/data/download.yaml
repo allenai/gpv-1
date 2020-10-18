@@ -1,0 +1,31 @@
+exp_name: learning_phase_data
+output_dir: /home/tanmayg/Data/gpv
+exp_dir: ${output_dir}/${exp_name}
+
+hydra:
+  run:
+    dir: ${exp_dir}
+
+urls:
+  coco:
+    images:
+      train2014: http://images.cocodataset.org/zips/train2014.zip
+      val2014: http://images.cocodataset.org/zips/val2014.zip
+      test2014: http://images.cocodataset.org/zips/test2014.zip
+    anno:
+      trainval2014: http://images.cocodataset.org/annotations/annotations_trainval2014.zip
+      test2014: http://images.cocodataset.org/annotations/image_info_test2014.zip 
+      
+  vqa:
+    questions:
+      train: https://s3.amazonaws.com/cvmlp/vqa/mscoco/vqa/v2_Questions_Train_mscoco.zip
+      val: https://s3.amazonaws.com/cvmlp/vqa/mscoco/vqa/v2_Questions_Val_mscoco.zip
+      test: https://s3.amazonaws.com/cvmlp/vqa/mscoco/vqa/v2_Questions_Test_mscoco.zip
+    anno:
+      train: https://s3.amazonaws.com/cvmlp/vqa/mscoco/vqa/v2_Annotations_Train_mscoco.zip
+      val: https://s3.amazonaws.com/cvmlp/vqa/mscoco/vqa/v2_Annotations_Val_mscoco.zip
+
+
+  refcocop:
+    anno: 
+      zip: http://bvisionweb1.cs.unc.edu/licheng/referit/data/refcoco+.zip
