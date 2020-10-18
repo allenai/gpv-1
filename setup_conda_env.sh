@@ -19,3 +19,4 @@
 # pip install tqdm
 # pip install transformers
 # pip install nltk
+pip install wget
