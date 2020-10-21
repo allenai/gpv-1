@@ -1,0 +1,10 @@
+exp_name: split_coco_categories
+output_dir: /home/tanmayg/Data/gpv/learning_phase_data
+exp_dir: ${output_dir}/${exp_name}
+subset: train
+
+hydra:
+  run:
+    dir: ${exp_dir}
+
+coco_category_split: /home/tanmayg/Data/gpv/learning_phase_data/split_coco_categories/category_split.json

@@ -19,4 +19,5 @@
 # pip install tqdm
 # pip install transformers
 # pip install nltk
-pip install wget
+# pip install wget
+pip install PyDictionary

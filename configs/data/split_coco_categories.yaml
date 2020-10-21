@@ -1,0 +1,21 @@
+exp_name: split_coco_categories
+output_dir: /home/tanmayg/Data/gpv/learning_phase_data
+exp_dir: ${output_dir}/${exp_name}
+subset: train
+seed: 0
+num_categories:
+  shared: 60
+  held_from_vqa: 10
+  held_from_det: 10
+  
+
+hydra:
+  run:
+    dir: ${exp_dir}
+
+download_dir: /home/tanmayg/Data/gpv/learning_phase_data/coco/anno/annotations
+
+instances:
+  train: instances_train2014.json
+  val: instances_val2014.json
+  test: image_info_test2014.json

@@ -1,0 +1,17 @@
+exp_name: split_coco_images
+output_dir: /home/tanmayg/Data/gpv/learning_phase_data
+exp_dir: ${output_dir}/${exp_name}
+subset: train
+seed: 0
+train_frac: 0.8
+  
+
+hydra:
+  run:
+    dir: ${exp_dir}
+
+image_dir: /home/tanmayg/Data/gpv/learning_phase_data/coco/images
+
+images:
+  train: train2014
+  val: val2014
