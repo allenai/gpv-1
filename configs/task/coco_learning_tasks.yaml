@@ -1,0 +1,53 @@
+# @package task_configs
+image_dir: /home/tanmayg/Data/gpv/learning_phase_data/coco/images
+image_size:
+  H: 480
+  W: 640
+
+coco_captioning:
+  image_dir: ${task_configs.image_dir}
+  image_size: ${task_configs.image_size}
+  samples:
+    train: /home/tanmayg/Data/gpv/learning_phase_data/coco_captions/gpv_split/train.json
+    val: /home/tanmayg/Data/gpv/learning_phase_data/coco_captions/gpv_split/val.json
+    test: /home/tanmayg/Data/gpv/learning_phase_data/coco_captions/gpv_split/test.json
+  max_samples:
+    train: null
+    val: null
+    test: null
+
+coco_detection:
+  image_dir: ${task_configs.image_dir}
+  image_size: ${task_configs.image_size}
+  samples:
+    train: /home/tanmayg/Data/gpv/learning_phase_data/coco_detection/gpv_split/train.json
+    val: /home/tanmayg/Data/gpv/learning_phase_data/coco_detection/gpv_split/val.json
+    test: /home/tanmayg/Data/gpv/learning_phase_data/coco_detection/gpv_split/test.json
+  max_samples:
+    train: null
+    val: null
+    test: null
+
+coco_classification:
+  image_dir: ${task_configs.image_dir}
+  image_size: ${task_configs.image_size}
+  samples:
+    train: /home/tanmayg/Data/gpv/learning_phase_data/coco_classification/gpv_split/train.json
+    val: /home/tanmayg/Data/gpv/learning_phase_data/coco_classification/gpv_split/val.json
+    test: /home/tanmayg/Data/gpv/learning_phase_data/coco_classification/gpv_split/test.json
+  max_samples:
+    train: null
+    val: null
+    test: null
+
+coco_vqa:
+  image_dir: ${task_configs.image_dir}
+  image_size: ${task_configs.image_size}
+  samples:
+    train: /home/tanmayg/Data/gpv/learning_phase_data/vqa/gpv_split/train.json
+    val: /home/tanmayg/Data/gpv/learning_phase_data/vqa/gpv_split/val.json
+    test: /home/tanmayg/Data/gpv/learning_phase_data/vqa/gpv_split/test.json
+  max_samples:
+    train: null
+    val: null
+    test: null
