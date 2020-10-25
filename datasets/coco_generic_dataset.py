@@ -32,7 +32,12 @@ class GenericCocoDataset(Dataset):
         img_path = os.path.join(
             img_dir,
             'COCO_'+image_subset+'_'+str(image_id).zfill(12)+'.jpg')
-        img = skio.imread(img_path)[:,:,:3]
+        img = skio.imread(img_path)
+        if len(img.shape)==2:
+            img = np.tile(np.expand_dims(img,2),(1,1,3))
+        else:
+            img = img[:,:,:3]
+        
         original_image_size = img.shape[:2] # HxW
         resized_image_size = resize(img,(self.imh,self.imw),anti_aliasing=True)
         return resized_image_size, original_image_size
@@ -61,20 +66,28 @@ class GenericCocoDataset(Dataset):
     def __getitem__(self,i):
         sample = self.samples[i]
 
-        image_subset = sample['image']['subset']
-        image_id = sample['image']['image_id']
-        img, original_image_size = self.read_image(
-            image_subset,image_id)
-        img = img.astype(np.float32)
-        img = (img - 0.5)/0.25
-        img = torch.as_tensor(img,dtype=torch.float32).permute(2,0,1)
+        if self.cfg.read_image is True:
+            image_subset = sample['image']['subset']
+            image_id = sample['image']['image_id']
+            img, original_image_size = self.read_image(
+                image_subset,image_id)
+            img = img.astype(np.float32)
+            img = (img - 0.5)/0.25
+            img = torch.as_tensor(img,dtype=torch.float32).permute(2,0,1)
+        # else:
+        #     img = torch.zeros([3,self.imh,self.imw])
         
         query = sample['query']
 
         targets = {}
         if 'boxes' in sample:
             bboxes_cxcywh = self.get_boxes(sample['boxes'],'cxcywh')
-            bboxes_ncxcywh = self.normalize_bbox(bboxes_cxcywh,*original_image_size)
+            if self.cfg.read_image is not True:
+                bboxes_ncxcywh = bboxes_cxcywh
+            else:
+                bboxes_ncxcywh = self.normalize_bbox(
+                    bboxes_cxcywh,*original_image_size)
+
             labels = np.zeros([bboxes_cxcywh.shape[0]])
             targets.update({
                 'labels': torch.as_tensor(labels,dtype=torch.long),
@@ -84,7 +97,10 @@ class GenericCocoDataset(Dataset):
         if 'answer' in sample:
             targets['answer'] = sample['answer']
 
-        return img, query, targets
+        if self.cfg.read_image is True:
+            return img, query, targets
+        else:
+            return query,targets
     
     def get_images_from_tensor(self,imgs):
         """
