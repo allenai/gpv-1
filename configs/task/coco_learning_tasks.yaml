@@ -3,10 +3,12 @@ image_dir: /home/tanmayg/Data/gpv/learning_phase_data/coco/images
 image_size:
   H: 480
   W: 640
+read_image: True
 
 coco_captioning:
   image_dir: ${task_configs.image_dir}
   image_size: ${task_configs.image_size}
+  read_image: ${task_configs.read_image}
   samples:
     train: /home/tanmayg/Data/gpv/learning_phase_data/coco_captions/gpv_split/train.json
     val: /home/tanmayg/Data/gpv/learning_phase_data/coco_captions/gpv_split/val.json
@@ -19,6 +21,7 @@ coco_captioning:
 coco_detection:
   image_dir: ${task_configs.image_dir}
   image_size: ${task_configs.image_size}
+  read_image: ${task_configs.read_image}
   samples:
     train: /home/tanmayg/Data/gpv/learning_phase_data/coco_detection/gpv_split/train.json
     val: /home/tanmayg/Data/gpv/learning_phase_data/coco_detection/gpv_split/val.json
@@ -31,6 +34,7 @@ coco_detection:
 coco_classification:
   image_dir: ${task_configs.image_dir}
   image_size: ${task_configs.image_size}
+  read_image: ${task_configs.read_image}
   samples:
     train: /home/tanmayg/Data/gpv/learning_phase_data/coco_classification/gpv_split/train.json
     val: /home/tanmayg/Data/gpv/learning_phase_data/coco_classification/gpv_split/val.json
@@ -43,6 +47,7 @@ coco_classification:
 coco_vqa:
   image_dir: ${task_configs.image_dir}
   image_size: ${task_configs.image_size}
+  read_image: ${task_configs.read_image}
   samples:
     train: /home/tanmayg/Data/gpv/learning_phase_data/vqa/gpv_split/train.json
     val: /home/tanmayg/Data/gpv/learning_phase_data/vqa/gpv_split/val.json

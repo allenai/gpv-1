@@ -1,0 +1,28 @@
+exp_name: vocab
+output_dir: /home/tanmayg/Data/gpv/learning_phase_data
+exp_dir: ${output_dir}/${exp_name}
+tb_dir: ${exp_dir}/tb_logs
+ckpt_dir: ${exp_dir}/ckpts
+
+hydra:
+  run:
+    dir: ${output_dir}/${exp_name}
+
+defaults:
+  - task: coco_learning_tasks
+
+learning_datasets:
+  CocoCaptioning:
+    task_config: coco_captioning
+    name: coco_cap
+  CocoDetection:
+    task_config: coco_detection
+    name: coco_det
+  CocoClassification:
+    task_config: coco_classification
+    name: coco_cls
+  CocoVqa:
+    task_config: coco_vqa
+    name: coco_vqa
+
+min_count: 10
