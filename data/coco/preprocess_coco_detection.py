@@ -48,9 +48,10 @@ def main(cfg):
             
         if category_id not in instances[image_id]:
             instances[image_id][category_id] = []
+            instance_ids[image_id][category_id] = []
 
         instances[image_id][category_id].append(anno['bbox'])
-        instance_ids[image_id][category_id] = anno['id']
+        instance_ids[image_id][category_id].append(anno['id'])
 
     categories = {}
     for category in tqdm(data['categories']):
@@ -69,13 +70,14 @@ def main(cfg):
             sample = {
                 'query': random.choice(query_choices).format(category_name),
                 'boxes': boxes,
+                'instance_ids': instance_ids[image_id][category_id],
                 'category_id': category_id,
                 'category_name': category_name,
                 'image': {
                     'subset': image_path.split('_')[1],
                     'image_id': image_id
-                }
-                'id': instance_ids[image_id][category_id]
+                },
+                'id': sorted(instance_ids[image_id][category_id])[0]
             }
             dataset.append(sample)
 

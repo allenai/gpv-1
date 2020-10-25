@@ -35,10 +35,7 @@ def main(cfg):
         if category_id not in instances[image_id]:
             instances[image_id][category_id] = []
 
-        instances[image_id][category_id].append(anno['bbox'])
-        if category_id in instance_ids[image_id]:
-            assert instance_ids[image_id][category_id] == anno['id']
-        instance_ids[image_id][category_id] = anno['id']
+        instances[image_id][category_id].append((anno['bbox'],anno['id']))
 
     categories = {}
     for category in tqdm(data['categories']):
@@ -52,17 +49,19 @@ def main(cfg):
     for image_id, category_boxes in tqdm(instances.items()):
         for category_id, boxes in category_boxes.items():
             category = categories[category_id]
-            image_path = images[image_id]['file_name'] 
+            image_path = images[image_id]['file_name']
+            box,box_id = sorted(boxes,key=lambda x:x[1])[0]
             sample = {
                 'query': random.choice(query_choices),
-                'boxes': random.choice(boxes),
+                'boxes': box,
+                'instance_id': box_id,
                 'category_id': category_id,
                 'answer': category['name'],
                 'image': {
                     'subset': image_path.split('_')[1],
                     'image_id': image_id
-                }
-                'id': instance_ids[image_id][category_id]
+                },
+                'id': box_id
             }
             dataset.append(sample)
 
