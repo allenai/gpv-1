@@ -9,7 +9,13 @@ from utils.matcher import HungarianMatcher
 class AnswerClassification(nn.Module):
     def __init__(self,cfg):
         super().__init__()
-        self.ce_loss = nn.CrossEntropyLoss(reduce=False)
+        ignore_index = -100
+        if cfg.pad_idx is not None:
+            print('Ignoring pad idx:',cfg.pad_idx)
+            ignore_index = cfg.pad_idx
+
+        self.ce_loss = nn.CrossEntropyLoss(
+            reduce=False,ignore_index=ignore_index)
 
     def forward(self,outputs,targets):
         idx_filtered_targets = [(
@@ -87,15 +93,20 @@ class GPVCriterion(nn.Module):
     def __init__(self,cfg):
         super().__init__()
         self.cfg = cfg
-        self.criterions = {}
+        self.criterion_names = []
         self.loss_wts = {}
         for loss_module_name,loss_cfg in cfg.items():
-            self.criterions[loss_cfg.name] = globals()[loss_module_name](loss_cfg).cuda()
+            setattr(
+                self,
+                loss_cfg.name,
+                globals()[loss_module_name](loss_cfg))
+            self.criterion_names.append(loss_cfg.name)
             self.loss_wts.update(loss_cfg.loss_wts)
 
     def forward(self,outputs,targets):
         loss_dict = {}
-        for loss_name,criterion in self.criterions.items():
+        for name in self.criterion_names:
+            criterion = getattr(self,name)
             losses = criterion(outputs,targets)
             loss_dict.update(losses)
         
