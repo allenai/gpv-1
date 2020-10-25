@@ -4,19 +4,23 @@ import random
 from tqdm import tqdm
 import nltk
 from nltk.tokenize import word_tokenize
-from nltk.stem.porter import PorterStemmer
+from nltk.stem import WordNetLemmatizer 
 from collections import Counter
 from data.coco.synonyms import SYNONYMS
-
 import utils.io as io
-
+import spacy
+nltk.download('punkt')
+# Run this line!
+# python -m spacy download en_core_web_sm
+nlp = spacy.load('en_core_web_sm')
 
 class AssignCocoCategories():
     def __init__(self,categories,synonyms):
-        self.stemmer = PorterStemmer()
+        self.lemmatizer = WordNetLemmatizer()
         self.categories = categories
-        self.synonyms = self.stem_synonyms(synonyms)
-        
+        self.synonyms = self.lemmatize_synonyms(synonyms)
+        self.special_categories = ['orange', 'dog', 'cup', 'clock', 'bear']
+
     def is_subsequence(self,needle,haystack):
         for i in range(len(haystack) - len(needle) + 1):
             if haystack[i:i+len(needle)] == needle:
@@ -24,29 +28,85 @@ class AssignCocoCategories():
         
         return False
 
-    def stem_tokens(self,tokens):
-        return [self.stemmer.stem(w.lower()) for w in tokens]
+    def lemmatize_tokens(self,tokens):
+        return [self.lemmatizer.lemmatize(w.lower()) for w in tokens]
 
-    def stem_synonyms(self,synonyms):
+    def lemmatize_synonyms(self,synonyms):
         synonym_stems = {}
         for k,syns in synonyms.items():
             synonym_stems[k] = []
             for syn in syns:
                 tokens = word_tokenize(syn)
-                synonym_stems[k].append(self.stem_tokens(tokens))
+                synonym_stems[k].append(self.lemmatize_tokens(tokens))
         
         return synonym_stems
+
+    def remove_special(self,category_name,appearance,text_tokens,text):
+        assert category_name in self.special_categories
+        appearance_indices = [i for i, word in enumerate(text_tokens) if word==appearance]
+        # If the category we check is dog,
+        # we don't want to catch "hot dog".
+        if category_name == 'dog':
+            for i in appearance_indices:
+                if i == 0 or (i > 0 and text_tokens[i-1] != 'hot'):
+                    return False
+                return True
+        # If the category we check is bear,
+        # we don't want to catch "teddy bear".
+        if category_name == 'bear':
+            for i in appearance_indices:
+                if i == 0 or (i > 0 and text_tokens[i-1] != 'teddy'):
+                    return False
+                return True
+        # If the category we check is cup,
+        # we don't want to catch "wearing glasses"
+        # or "wine glasses".
+        if category_name == 'cup':
+            if appearance in ['glass', 'glasses'] and \
+                    'wine' in text_tokens:
+                return True
+            for i in appearance_indices:
+                if i == 0 or (i > 0 and text_tokens[i-1] not in ['wear', 'wearing']):
+                    return False
+                return True
+        # If the category we check is orange,
+        # we don't want to catch "what color --> orange"
+        # or orange as anything but a noun.
+        if category_name == 'orange':
+            spacy_text = nlp(text.lower())
+            for spacy_word in spacy_text:
+                if spacy_word.text in ['orange', 'oranges'] \
+                        and spacy_word.pos_ == 'NOUN':
+                    return False
+            # only return True if no "orange" was a noun:
+            return True
+        # If the category we check is clock,
+        # we don't want to catch "watch" as anything but a noun.
+        if category_name == 'clock' and appearance in ['watch', 'watches']:
+            spacy_text = nlp(text.lower())
+            if spacy_text[-1].text in ['watch', 'watches']:
+                return False
+            for spacy_word in spacy_text:
+                if spacy_word.text in ['watch', 'watches'] \
+                        and spacy_word.pos_ == 'NOUN':
+                    return False
+            # only return True if no "watch" was a noun:
+            return True
+        return
 
     def assign(self,sample):
         text = sample['query']
         if 'answer' in sample:
             text = text + ' ' + sample['answer']
-        
-        text_tokens = self.stem_tokens(word_tokenize(text))
+        text_tokens = self.lemmatize_tokens(word_tokenize(text))
         assigned_categories = []
         for category in self.categories:
             for syn in self.synonyms[category['name']]:
                 if self.is_subsequence(syn,text_tokens):
+                    if category['name'] in self.special_categories and \
+                        self.remove_special(category['name'],syn[0],text_tokens,text):
+                            # syn[0] as all special categories are one-word.
+                            break
                     assigned_categories.append(category)
                     break
 

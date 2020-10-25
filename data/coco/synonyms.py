@@ -156,6 +156,7 @@ SYNONYMS = {
         "clock",
         "alarm",
         "watch",
+        "wristwatch",
     ],
     "couch": [
         "sofa",
