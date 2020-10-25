@@ -38,17 +38,20 @@ def main(cfg):
         os.path.join(cfg.download_dir,cfg.instances[subset]))
     
     instances = {}
+    instance_ids = {}
     for anno in tqdm(data['annotations']):
         image_id = anno['image_id']
         category_id = anno['category_id']
         if image_id not in instances:
             instances[image_id] = {}
-
+            instance_ids[image_id] = {}
+            
         if category_id not in instances[image_id]:
             instances[image_id][category_id] = []
 
         instances[image_id][category_id].append(anno['bbox'])
-    
+        instance_ids[image_id][category_id] = anno['id']
+
     categories = {}
     for category in tqdm(data['categories']):
         category_id = category['id']
@@ -72,6 +75,7 @@ def main(cfg):
                     'subset': image_path.split('_')[1],
                     'image_id': image_id
                 }
+                'id': instance_ids[image_id][category_id]
             }
             dataset.append(sample)
 

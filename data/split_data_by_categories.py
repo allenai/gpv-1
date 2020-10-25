@@ -19,7 +19,7 @@ class AssignCocoCategories():
         self.lemmatizer = WordNetLemmatizer()
         self.categories = categories
         self.synonyms = self.lemmatize_synonyms(synonyms)
-        self.special_categories = ['orange', 'dog', 'cup', 'clock']
+        self.special_categories = ['orange', 'dog', 'cup', 'clock', 'bear']
 
     def is_subsequence(self,needle,haystack):
         for i in range(len(haystack) - len(needle) + 1):
@@ -49,6 +49,13 @@ class AssignCocoCategories():
         if category_name == 'dog':
             for i in appearance_indices:
                 if i == 0 or (i > 0 and text_tokens[i-1] != 'hot'):
+                    return False
+                return True
+        # If the category we check is bear,
+        # we don't want to catch "teddy bear".
+        if category_name == 'bear':
+            for i in appearance_indices:
+                if i == 0 or (i > 0 and text_tokens[i-1] != 'teddy'):
                     return False
                 return True
         # If the category we check is cup,
