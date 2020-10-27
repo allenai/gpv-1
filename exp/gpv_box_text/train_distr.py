@@ -26,149 +26,7 @@ def grad_norm(params):
         total_norm += param_norm.item() ** 2
     
     return total_norm ** (1. / 2)
-
-
-def train_model(model,dataloaders,train_sampler,cfg,gpu):
-    device = f'cuda:{gpu}'
-    #writer = SummaryWriter(log_dir=cfg.tb_dir)
-    # print('Parameters initialized with Detr that will not be trained')
-    # for n,p in model.named_parameters():
-    #     print(n)
-    #     if n in model.init_detr_params:
-    #         print(n)
-    #         p.requires_grad = False
-
-    backbone_params = [p for n, p in model.named_parameters() \
-            if 'backbone' in n and p.requires_grad]
-    other_params = [p for n, p in model.named_parameters() \
-            if ('backbone' not in n) and ('bert.' not in n) and p.requires_grad]
-    param_dicts = [
-        {'params': other_params},
-        {'params': backbone_params, 'lr': cfg.model.detr.lr_backbone}]
-    optimizer = torch.optim.AdamW(
-        param_dicts, 
-        lr=cfg.training.lr,
-        weight_decay=cfg.training.weight_decay)
-    # lr_scheduler = torch.optim.lr_scheduler.StepLR(
-    #     optimizer,
-    #     cfg.training.lr_drop)
-
-    gpv_criterion = GPVCriterion(cfg.losses).cuda(device)
-
-    encode_answers = model.encode_answers
-    # if cfg.distributed:
-    #     encoder_answers = model.encode_answers
-    step = 0
-    for epoch in range(cfg.training.num_epochs):
-        if cfg.distributed:
-            train_sampler.set_epoch(epoch)
-        print(gpu,len(dataloaders['train']))
-        for it,data in enumerate(dataloaders['train']):
-            imgs, queries, targets = data
-            imgs = imgs.to(torch.device(gpu))
-            for t in targets:
-                for k,v in t.items():
-                    if k!='answer':
-                        t[k] = v.cuda(device)
-            
-            model.train()
-            gpv_criterion.train()
-            
-            #print('Here1')
-
-            answer_tokens,answer_token_ids = encode_answers(targets)
-            for i,t in enumerate(targets):
-                t['answer_token_ids'] = answer_token_ids[i,1:]
-            #print('Here2')
-            #total_loss = model(imgs,queries,answer_token_ids,targets)
-            outputs = model(imgs,queries,answer_token_ids)
-            total_loss, losses = gpv_criterion(outputs,targets)
-            #print('Here3')
-            if total_loss is not None:
-                optimizer.zero_grad()
-                total_loss.backward()
-                if cfg.training.clip_max_norm > 0:
-                    torch.nn.utils.clip_grad_norm_(
-                        backbone_params + other_params, 
-                        cfg.training.clip_max_norm)
-                optimizer.step()
-                #print('Here4')
-
-            if gpu==0 and step%cfg.training.log_step==0:
-                loss_str = f'Epoch: {epoch} | Iter: {it} | Step: {step} | '
-                loss_value = round(total_loss.item(),4)
-                loss_str += f'total_loss: {loss_value} | '
-                # writer.add_scalar('Epoch',epoch,step)
-                # writer.add_scalar('Iter',it,step)
-                # writer.add_scalar('Step',step,step)
-                # writer.add_scalar(
-                #     'Lr/all_except_backbone',
-                #     lr_scheduler.get_last_lr()[0],
-                #     step)
-                # writer.add_scalar(
-                #     'Lr/backbone',
-                #     lr_scheduler.get_last_lr()[1],
-                #     step)
-                # writer.add_scalar(
-                #     'GradNorm/backbone',
-                #     grad_norm(backbone_params),
-                #     step)
-                # writer.add_scalar(
-                #     'GradNorm/other',
-                #     grad_norm(other_params),
-                #     step)
-                # writer.add_scalar(
-                #     'GradNorm/backbone+other',
-                #     grad_norm(backbone_params + other_params),
-                #     step)
-                for loss_name,loss_value in losses.items():
-                    if loss_value is None:
-                        continue
-                    loss_value = round(loss_value.item(),4)
-                    loss_str += f'{loss_name}: {loss_value} | '
-                    #writer.add_scalar(f'Loss/{loss_name}/train',loss_value,step)
-                print(loss_str)
-
-            if gpu==0 and step%cfg.training.vis_step==0:
-                with torch.no_grad():
-                    model.eval()
-                    for subset in ['train']:
-                        print(f'Visualizing {subset} ...')
-                        visualize(model,dataloaders[subset],cfg,step,subset)
-
-            if gpu==0 and step%(10*cfg.training.log_step)==0:
-                print('Exp:',cfg.exp_name)
-                    
-            # if gpu==0 and step%cfg.training.ckpt_step==0:
-            #     print('Saving checkpoint ...')
-            #     torch.save({
-            #         'model': model.module.state_dict(),
-            #         'optimizer': optimizer.state_dict(),
-            #         'epoch': epoch,
-            #         'iter': it,
-            #         'step': step,
-            #         'lr': lr_scheduler.get_last_lr()
-            #     }, os.path.join(cfg.ckpt_dir,'model.pth'))
-
-            step += 1
-
-        #lr_scheduler.step()
-
-        # if epoch%cfg.training.eval_epoch==0:
-        #     with torch.no_grad():
-        #         model.eval()
-        #         AP = {}
-        #         for subset, dataloader in dataloaders.items():
-        #             print(f'Evaluating {subset} ...')
-        #             AP[subset] = eval_model(
-        #                 model,
-        #                 dataloaders[subset],
-        #                 cfg,
-        #                 cfg.training.num_eval_samples[subset])[0]['AP']
-        #             writer.add_scalar(f'AP/{subset}',AP[subset],epoch)
-
-        #         print('Epoch:',epoch,'AP',AP)
-
+    
 
 def visualize(model,dataloader,cfg,step,subset):
     device = f'cuda:{cfg.gpu}'
@@ -266,63 +124,63 @@ def visualize(model,dataloader,cfg,step,subset):
     html_writer.close()
 
 
-def train_worker(gpu,cfg):
-    #print(cfg.pretty())
+def freeze_detr_params(model):
+    print(f'Setting requires grad to False for DETR params')
+    for n,p in model.named_parameters():
+        if n in model.init_detr_params:
+            p.requires_grad = False
+            #print(f'    {n}')
 
+
+def train_worker(gpu,cfg):
     cfg.gpu = gpu
     if cfg.gpu is not None:
         print("Use GPU: {} for training".format(cfg.gpu))
 
-    if cfg.distributed:
-        if cfg.multiprocessing_distributed:
-            # For multiprocessing distributed training, rank needs to be the
-            # global rank among all the processes
-            cfg.rank = cfg.rank * cfg.ngpus_per_node + cfg.gpu
+    if gpu==0:
+        print(cfg.pretty())
+
+    model = GPV(cfg.model)
+    model.load_pretr_detr()
+    if cfg.training.freeze is True:
+        freeze_detr_params(model)
+
+    datasets = {
+        'train': CocoMultitaskDataset(cfg.learning_datasets,cfg.task_configs,'train'),
+        'val': CocoMultitaskDataset(cfg.learning_datasets,cfg.task_configs,'val')
+    }
+    for subset,dataset in datasets.items():
+        print(f'{subset} set size:',len(dataset))
+
+    if cfg.multiprocessing_distributed:
+        cfg.rank = cfg.rank * cfg.ngpus_per_node + cfg.gpu
         dist.init_process_group(
             backend=cfg.dist_backend, 
             init_method=cfg.dist_url,
             world_size=cfg.world_size,
             rank=cfg.rank)
 
-    model = GPV(cfg.model)
-    model.load_pretr_detr()
-    init_detr_params = model.init_detr_params
-    print('Parameters initialized with Detr that will not be trained')
-    for n,p in model.named_parameters():
-        if n in model.init_detr_params:
-            print(n)
-            p.requires_grad = False
+        # Setup distributed model
+        torch.cuda.set_device(cfg.gpu)
+        model.cuda(cfg.gpu)
+        init_detr_params = model.init_detr_params
+        word_to_idx = model.word_to_idx
+        encode_answers = model.encode_answers
+        token_ids_to_words = model.token_ids_to_words
+        model = torch.nn.parallel.DistributedDataParallel(
+            model, device_ids=[cfg.gpu], find_unused_parameters=True)
+        model.encode_answers = encode_answers
+        model.word_to_idx = word_to_idx
+        model.token_ids_to_words = token_ids_to_words
+        model.init_detr_params = init_detr_params
 
-    datasets = {
-        'train': CocoMultitaskDataset(cfg.learning_datasets,cfg.task_configs,'train'),
-        #'val': CocoMultitaskDataset(cfg.learning_datasets,cfg.task_configs,'val')
-        }
-
-    train_sampler = None
-
-    if cfg.distributed:
-        # For multiprocessing distributed, DistributedDataParallel constructor
-        # should always set the single device scope, otherwise,
-        # DistributedDataParallel will use all available devices.
-        if cfg.gpu is not None:
-            torch.cuda.set_device(cfg.gpu)
-            model.cuda(cfg.gpu)
-            word_to_idx = model.word_to_idx
-            encode_answers = model.encode_answers
-            token_ids_to_words = model.token_ids_to_words
-            # When using a single GPU per process and per
-            # DistributedDataParallel, we need to divide the batch size
-            # ourselves based on the total number of GPUs we have
-            cfg.batch_size = int(cfg.training.batch_size / cfg.ngpus_per_node)
-            cfg.workers = int((cfg.workers + cfg.ngpus_per_node - 1) / cfg.ngpus_per_node)
-            model = torch.nn.parallel.DistributedDataParallel(model, device_ids=[cfg.gpu], find_unused_parameters=True)
-            model.encode_answers = encode_answers
-            model.word_to_idx = word_to_idx
-            model.token_ids_to_words = token_ids_to_words
-            train_sampler = torch.utils.data.distributed.DistributedSampler(
-                datasets['train'])
+        # Create sampler for dataloader
+        sampler = {'val': None}
+        sampler['train'] = torch.utils.data.distributed.DistributedSampler(
+            datasets['train'],shuffle=True)
     else:
         model.cuda(cfg.gpu)
+        sampler = {'train': None, 'val': None}
 
     dataloaders = {}
     for subset,dataset in datasets.items():
@@ -332,25 +190,141 @@ def train_worker(gpu,cfg):
             collate_fn=collate_fn,
             num_workers=cfg.workers,
             pin_memory=True,
-            shuffle=(train_sampler is None),
-            sampler=train_sampler)
+            shuffle=(sampler[subset] is None and subset is 'train'),
+            sampler=sampler[subset])
 
-    train_model(model,dataloaders,train_sampler,cfg,gpu)
+    device = f'cuda:{cfg.gpu}'
+    if gpu==0:
+        writer = SummaryWriter(log_dir=cfg.tb_dir)
+
+    backbone_params = [p for n, p in model.named_parameters() \
+            if 'backbone' in n and p.requires_grad]
+    other_params = [p for n, p in model.named_parameters() \
+            if ('backbone' not in n) and ('bert.' not in n) and p.requires_grad]
+    param_dicts = [
+        {'params': other_params},
+        {'params': backbone_params, 'lr': cfg.model.detr.lr_backbone}]
+    optimizer = torch.optim.AdamW(
+        param_dicts, 
+        lr=cfg.training.lr,
+        weight_decay=cfg.training.weight_decay)
+
+    gpv_criterion = GPVCriterion(cfg.losses).cuda(device)
+
+    step = 0
+    last_epoch = -1
+    if cfg.training.ckpt is not None:
+        ckpt = torch.load(cfg.training.ckpt)
+        model.load_state_dict(ckpt['model'])
+        optimizer.load_state_dict(ckpt['optimizer'])
+        step = ckpt['step']
+        last_epoch = ckpt['epoch']
+
+    lr_scheduler = torch.optim.lr_scheduler.StepLR(
+        optimizer,
+        cfg.training.lr_drop,
+        last_epoch=last_epoch)
+
+    for epoch in range(last_epoch+1,cfg.training.num_epochs):
+        if cfg.multiprocessing_distributed:
+            sampler['train'].set_epoch(epoch)
+
+        print(gpu,len(dataloaders['train']))
+        for it,data in enumerate(dataloaders['train']):
+            imgs, queries, targets = data
+            imgs = imgs.to(torch.device(gpu))
+            for t in targets:
+                for k,v in t.items():
+                    if k!='answer':
+                        t[k] = v.cuda(device)
+            
+            model.train()
+            gpv_criterion.train()
+
+            answer_tokens,answer_token_ids = model.encode_answers(targets)
+            for i,t in enumerate(targets):
+                t['answer_token_ids'] = answer_token_ids[i,1:]
+            
+            outputs = model(imgs,queries,answer_token_ids,targets)
+            total_loss = outputs
+            losses = {
+                'total_loss': total_loss
+            }
+            #total_loss, losses = gpv_criterion(outputs,targets)
+            if total_loss is not None:
+                optimizer.zero_grad()
+                total_loss.backward()
+                if cfg.training.clip_max_norm > 0:
+                    torch.nn.utils.clip_grad_norm_(
+                        backbone_params + other_params, 
+                        cfg.training.clip_max_norm)
+                optimizer.step()
+            
+            if gpu==0 and step%cfg.training.log_step==0:
+                loss_str = f'Epoch: {epoch} | Iter: {it} | Step: {step} | '
+                loss_value = round(total_loss.item(),4)
+                loss_str += f'total_loss: {loss_value} | '
+                writer.add_scalar('Epoch',epoch,step)
+                writer.add_scalar('Iter',it,step)
+                writer.add_scalar('Step',step,step)
+                writer.add_scalar(
+                    'Lr/all_except_backbone',
+                    lr_scheduler.get_last_lr()[0],
+                    step)
+                writer.add_scalar(
+                    'Lr/backbone',
+                    lr_scheduler.get_last_lr()[1],
+                    step)
+                for loss_name,loss_value in losses.items():
+                    if loss_value is None:
+                        continue
+                    loss_value = round(loss_value.item(),4)
+                    loss_str += f'{loss_name}: {loss_value} | '
+                    writer.add_scalar(f'Loss/{loss_name}/train',loss_value,step)
+                print(loss_str)
+
+            if gpu==0 and step%cfg.training.vis_step==0:
+                with torch.no_grad():
+                    model.eval()
+                    for subset in ['train','val']:
+                        print(f'Visualizing {subset} ...')
+                        visualize(model,dataloaders[subset],cfg,step,subset)
+
+            if gpu==0 and step%(10*cfg.training.log_step)==0:
+                print('Exp:',cfg.exp_name)
+                    
+            if gpu==0 and step%cfg.training.ckpt_step==0:
+                print('Saving checkpoint ...')
+                torch.save({
+                    'model': model.state_dict(),
+                    'optimizer': optimizer.state_dict(),
+                    'epoch': epoch,
+                    'iter': it,
+                    'step': step,
+                    'lr': lr_scheduler.get_last_lr()
+                }, os.path.join(cfg.ckpt_dir,'model.pth'))
+
+            step += 1
+
+        lr_scheduler.step()
 
 @hydra.main(config_path=f'../../configs',config_name=f"exp/gpv_box_text_coco")
 def main(cfg):
     io.mkdir_if_not_exists(cfg.ckpt_dir,recursive=True)
+    io.mkdir_if_not_exists(cfg.tb_dir,recursive=True)
 
-    cfg.distributed = cfg.world_size > 1 or cfg.multiprocessing_distributed
+    if cfg.training.freeze:
+        cfg.training.num_epochs = cfg.training.frozen_epochs
+        cfg.training.batch_size = cfg.training.frozen_batch_size
+        cfg.batch_size = cfg.training.frozen_batch_size
+
     if cfg.multiprocessing_distributed:
-        # Since we have ngpus_per_node processes per node, the total world_size
-        # needs to be adjusted accordingly
-        cfg.world_size = cfg.ngpus_per_node * cfg.world_size
-        # Use torch.multiprocessing.spawn to launch distributed processes: the
-        # main_worker process function
+        cfg.world_size = cfg.ngpus_per_node * cfg.num_nodes
+        cfg.batch_size = int(cfg.batch_size / cfg.ngpus_per_node)
+        cfg.workers = int(
+            (cfg.workers + cfg.ngpus_per_node - 1) / cfg.ngpus_per_node)
         mp.spawn(train_worker, nprocs=cfg.ngpus_per_node, args=(cfg,))
     else:
-        # Simply call main_worker function
         train_worker(cfg.gpu,cfg)
     
     
