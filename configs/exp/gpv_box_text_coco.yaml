@@ -1,18 +1,18 @@
-exp_name: gpv_cap_det_cls_vqa_pretr_detr_last_hs_bs_${training.batch_size}_lr_${training.lr}_untie_dist
+exp_name: trial #gpv_cap_det_cls_vqa_pretr_detr_last_hs_bs_${training.batch_size}_lr_${training.lr}_untie_dist
 output_dir: /home/tanmayg/Data/gpv/coco_exp/
 exp_dir: ${output_dir}/${exp_name}
 tb_dir: ${exp_dir}/tb_logs
 ckpt_dir: ${exp_dir}/ckpts
 
 gpu: 0
-ngpus_per_node: 2
-world_size: 1
+num_nodes: 1
+ngpus_per_node: 4
+world_size: null  #computed dynamically as num_nodes*ngpus_per_node
 rank: 0
 workers: ${training.num_workers}
 batch_size: ${training.batch_size}
 dist_backend: nccl
 dist_url: 'tcp://localhost:10001'
-distributed: null # to be set later
 multiprocessing_distributed: True
 
 hydra:
@@ -49,7 +49,7 @@ model:
     num_encoder_layers: 6
     num_decoder_layers: 6
     backbone: resnet50
-    lr_backbone: 1e-4
+    lr_backbone: 1e-5
     position_embedding: sine
     masks: False
     dilation: False
@@ -78,7 +78,6 @@ model:
     num_layers: 3
   losses: ${losses}
 
-
 losses:
   AnswerClassification:
     name: answer_classification_criterion
@@ -100,18 +99,18 @@ losses:
     num_classes: ${model.detr.num_classes}
 
 training:
-  num_epochs: 30
-  batch_size: 40 #10
-  num_workers: 10 #20
+  ckpt: null #${ckpt_dir}/model.pth
+  freeze: False # freeze Detr layers
+  frozen_epochs: 5
+  frozen_batch_size: 120
+  num_epochs: 20 # will be set to frozen_epochs if freeze is True
+  batch_size: 60 # will be set to frozen_batch_size if freeze is True
+  num_workers: 30
   vis_step: 2000
   log_step: 10
   ckpt_step: 2000
-  eval_epoch: 10
   lr: 1e-4
   weight_decay: 1e-4
-  lr_drop: 15
+  lr_drop: 10
   clip_max_norm: 0.1
   num_vis_samples: 15
-  losses:
-    - AnswerClassification
-    - Localization
