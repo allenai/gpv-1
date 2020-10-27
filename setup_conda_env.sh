@@ -4,23 +4,23 @@
 ################################################################################
 # conda installs
 ################################################################################
-# conda install pytorch torchvision cudatoolkit=10.2 -c pytorch -y
-# conda install -c conda-forge scikit-image -y
-# conda install -c conda-forge spacy -y
-# conda install -c conda-forge spacy-lookups-data -y
-# python -m spacy download en_core_web_sm
+conda install pytorch torchvision cudatoolkit=10.2 -c pytorch -y
+conda install -c conda-forge scikit-image -y
+conda install -c conda-forge spacy -y
+conda install -c conda-forge spacy-lookups-data -y
+python -m spacy download en_core_web_sm
 
 
 ################################################################################
 # pip installs
 ################################################################################
-# pip install hydra-core --upgrade --pre
-# pip install ipython
-# pip install ipdb
-# pip install tensorboard
-# pip install opencv-python==4.2.0.32
-# pip install tqdm
-# pip install transformers
-# pip install nltk
-# pip install wget
-# pip install PyDictionary
+pip install hydra-core --upgrade --pre
+pip install ipython
+pip install ipdb
+pip install tensorboard
+pip install opencv-python==4.2.0.32
+pip install tqdm
+pip install transformers
+pip install nltk
+pip install wget
+pip install PyDictionary
