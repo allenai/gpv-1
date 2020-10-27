@@ -8,7 +8,7 @@ import utils.io as io
 @hydra.main(config_path='../../configs',config_name='data/download.yaml')
 def main(cfg):
     print(cfg.pretty())
-    for dataset in ['coco']:#cfg.urls.keys():
+    for dataset in ['coco','vqa']: #cfg.urls.keys():
         dataset_dir = os.path.join(cfg.exp_dir,dataset)
         for data_type in cfg.urls[dataset].keys():
             data_type_dir = os.path.join(dataset_dir,data_type)
