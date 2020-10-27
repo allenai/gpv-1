@@ -54,8 +54,6 @@ def main(cfg):
         print('Test images:',len(test_split['image_ids']))
     else:
         raise NotImplementedError
-        
-    import ipdb; ipdb.set_trace()
 
 
 if __name__=='__main__':
