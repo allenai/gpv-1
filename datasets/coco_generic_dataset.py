@@ -6,6 +6,7 @@ from skimage.transform import resize
 import torch
 from torch.utils.data import DataLoader, Dataset
 from torch.utils.data.dataloader import default_collate
+import torchvision.transforms as T
 
 import utils.io as io
 from utils.detr_misc import collate_fn as detr_collate_fn
@@ -18,6 +19,23 @@ class GenericCocoDataset(Dataset):
         self.samples = io.load_json_object(self.cfg.samples[self.subset])
         self.imh = self.cfg.image_size.H
         self.imw = self.cfg.image_size.W
+        self.mean = torch.FloatTensor([0.485, 0.456, 0.406])
+        self.std = torch.FloatTensor([0.229, 0.224, 0.225])
+        if subset=='train':
+            self.transforms = T.Compose([
+                T.ToPILImage(mode='RGB'),
+                T.RandomApply([
+                    T.ColorJitter(0.4, 0.4, 0.4, 0.1)
+                ], p=0.8),
+                T.ToTensor(),
+                T.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225])
+            ])
+        if subset=='val':
+            self.transforms = T.Compose([
+                T.ToPILImage(mode='RGB'),
+                T.ToTensor(),
+                T.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225])
+            ])
     
     def __len__(self):
         max_samples = self.cfg.max_samples[self.subset]
@@ -71,9 +89,12 @@ class GenericCocoDataset(Dataset):
             image_id = sample['image']['image_id']
             img, original_image_size = self.read_image(
                 image_subset,image_id)
-            img = img.astype(np.float32)
-            img = (img - 0.5)/0.25
-            img = torch.as_tensor(img,dtype=torch.float32).permute(2,0,1)
+            #img = img.astype(np.float32)
+            #img = (img - 0.5)/0.25
+            #img = torch.as_tensor(img,dtype=torch.float32).permute(2,0,1)
+            #import ipdb; ipdb.set_trace()
+            img = (255*img).astype(np.uint8)
+            img = self.transforms(img)
         # else:
         #     img = torch.zeros([3,self.imh,self.imw])
         
@@ -106,7 +127,10 @@ class GenericCocoDataset(Dataset):
         """
         imgs: Bx3xHxW torch.float32 normalized image tensor
         """
-        imgs = 255*(0.5+0.25*imgs.tensors.permute(0,2,3,1))
+        device = imgs.tensors.device
+        imgs = 255*(self.mean.cuda(device) + \
+            self.std.cuda(device)*imgs.tensors.permute(0,2,3,1))
+        #imgs = 255*(0.5+0.25*imgs.tensors.permute(0,2,3,1))
         return imgs
 
     def get_collate_fn(self):
@@ -120,7 +144,7 @@ class GenericCocoDataset(Dataset):
 @hydra.main(config_path="../configs",config_name="test/coco_datasets")
 def test_dataset(cfg):
     print(cfg.pretty())
-    dataset = GenericCocoDataset(cfg.task_configs.detection,'train')
+    dataset = GenericCocoDataset(cfg.task_configs.coco_detection,'train')
     dataloader = dataset.get_dataloader(batch_size=2)
     for data in dataloader:
         import ipdb; ipdb.set_trace()

@@ -6,6 +6,7 @@ from skimage.transform import resize
 import torch
 from torch.utils.data import DataLoader, Dataset
 from torch.utils.data.dataloader import default_collate
+import torchvision.transforms as T
 
 import utils.io as io
 from utils.detr_misc import collate_fn as detr_collate_fn
@@ -19,6 +20,16 @@ class CocoCaptioning(GenericCocoDataset):
 class CocoDetection(GenericCocoDataset):
     def __init__(self,cfg,subset):
         super().__init__(cfg,subset)
+        if subset=='train':
+            self.transforms = T.Compose([
+                T.ToPILImage(mode='RGB'),
+                T.RandomApply([
+                    T.ColorJitter(0.4, 0.4, 0.4, 0.1)
+                ], p=0.8),
+                T.RandomGrayscale(p=0.2),
+                T.ToTensor(),
+                T.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225])
+            ])
 
 class CocoVqa(GenericCocoDataset):
     def __init__(self,cfg,subset):
@@ -27,6 +38,17 @@ class CocoVqa(GenericCocoDataset):
 class CocoClassification(GenericCocoDataset):
     def __init__(self,cfg,subset):
         super().__init__(cfg,subset)
+        if subset=='train':
+            self.transforms = T.Compose([
+                T.ToPILImage(mode='RGB'),
+                T.RandomApply([
+                    T.ColorJitter(0.4, 0.4, 0.4, 0.1)
+                ], p=0.8),
+                T.RandomHorizontalFlip(),
+                T.RandomGrayscale(p=0.2),
+                T.ToTensor(),
+                T.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225])
+            ])
     
     def read_image(self,image_subset,image_id,x,y,w,h):
         img_dir = os.path.join(self.cfg.image_dir,image_subset)
@@ -62,9 +84,11 @@ class CocoClassification(GenericCocoDataset):
             x,y,w,h = sample['boxes']
             img, original_image_size = self.read_image(
                 image_subset,image_id,x,y,w,h)
-            img = img.astype(np.float32)
-            img = (img - 0.5)/0.25
-            img = torch.as_tensor(img,dtype=torch.float32).permute(2,0,1)
+            # img = img.astype(np.float32)
+            # img = (img - 0.5)/0.25
+            # img = torch.as_tensor(img,dtype=torch.float32).permute(2,0,1)
+            img = (255*img).astype(np.uint8)
+            img = self.transforms(img)
         # else:
         #     img = torch.zeros([3,self.imh,self.imw])
         
