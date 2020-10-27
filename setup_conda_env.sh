@@ -6,6 +6,9 @@
 ################################################################################
 # conda install pytorch torchvision cudatoolkit=10.2 -c pytorch -y
 # conda install -c conda-forge scikit-image -y
+# conda install -c conda-forge spacy -y
+# conda install -c conda-forge spacy-lookups-data -y
+# python -m spacy download en_core_web_sm
 
 
 ################################################################################
@@ -20,4 +23,4 @@
 # pip install transformers
 # pip install nltk
 # pip install wget
-pip install PyDictionary
+# pip install PyDictionary
