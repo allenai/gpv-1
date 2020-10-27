@@ -99,11 +99,10 @@ class GPV(nn.Module):
                     curr_model[detr_lk] = loaded_model[lk]
                 else:
                     print(f'    {lk} size does not match')
-
         
         self.load_state_dict(curr_model)
 
-    def forward(self,images,queries,answer_token_ids):
+    def forward(self,images,queries,answer_token_ids,targets=None):
         device = self.vision_token.device
         outputs = self.detr(images)
 
@@ -152,7 +151,11 @@ class GPV(nn.Module):
             target = target.view(1,*target.size()).repeat(L,1,1,1)
             outputs['answer_logits'] = self.decode_text(target,memory)[:,:,:-1]
 
-        return outputs
+        if targets is None:
+            return outputs
+        else:
+            total_loss = self.criterion(outputs,targets)[0]
+            return total_loss
 
     def condition_on_relevance(self,relevance_logits,fused_hs):
         L,B,R,D = fused_hs.size()
