@@ -10,7 +10,7 @@ from .answer_head import build_answer_head
 from .losses import GPVCriterion
 import utils.io as io
 
-#nltk.download('punkt')
+nltk.download('punkt')
 
 
 def build_transformer_decoder(cfg):
