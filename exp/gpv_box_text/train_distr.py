@@ -11,7 +11,6 @@ import skimage.io as skio
 
 from .models.gpv import GPV
 from .models.losses import GPVCriterion
-from .eval import eval_model
 from datasets.coco_multitask_dataset import CocoMultitaskDataset
 from utils.bbox_utils import vis_bbox
 from utils.detr_misc import collate_fn
@@ -214,16 +213,21 @@ def train_worker(gpu,cfg):
     step = 0
     last_epoch = -1
     if cfg.training.ckpt is not None:
-        ckpt = torch.load(cfg.training.ckpt)
-        model.load_state_dict(ckpt['model'])
-        optimizer.load_state_dict(ckpt['optimizer'])
+        loc = 'cuda:{}'.format(cfg.gpu)
+        ckpt = torch.load(cfg.training.ckpt, map_location=loc)
+        state_dict = model.state_dict()
+        for k,v in ckpt['model'].items():
+            if k in state_dict and state_dict[k].size()==v.size():
+                v.requires_grad = state_dict[k].requires_grad
+                state_dict[k] = v
+
+        model.load_state_dict(state_dict)
         step = ckpt['step']
         last_epoch = ckpt['epoch']
 
     lr_scheduler = torch.optim.lr_scheduler.StepLR(
         optimizer,
-        cfg.training.lr_drop,
-        last_epoch=last_epoch)
+        cfg.training.lr_drop)
 
     for epoch in range(last_epoch+1,cfg.training.num_epochs):
         if cfg.multiprocessing_distributed:
