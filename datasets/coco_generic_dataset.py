@@ -25,7 +25,7 @@ class GenericCocoDataset(Dataset):
             self.transforms = T.Compose([
                 T.ToPILImage(mode='RGB'),
                 T.RandomApply([
-                    T.ColorJitter(0.4, 0.4, 0.4, 0.1)
+                    T.ColorJitter(0.2, 0.2, 0.2, 0.0)
                 ], p=0.8),
                 T.ToTensor(),
                 T.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225])
