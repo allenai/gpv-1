@@ -1,4 +1,4 @@
-exp_name: trial #gpv_cap_det_cls_vqa_pretr_detr_last_hs_bs_${training.batch_size}_lr_${training.lr}_untie_dist
+exp_name: gpv
 output_dir: /home/tanmayg/Data/gpv/coco_exp/
 exp_dir: ${output_dir}/${exp_name}
 tb_dir: ${exp_dir}/tb_logs
@@ -6,7 +6,7 @@ ckpt_dir: ${exp_dir}/ckpts
 
 gpu: 0
 num_nodes: 1
-ngpus_per_node: 4
+ngpus_per_node: 8
 world_size: null  #computed dynamically as num_nodes*ngpus_per_node
 rank: 0
 workers: ${training.num_workers}
@@ -99,13 +99,13 @@ losses:
     num_classes: ${model.detr.num_classes}
 
 training:
-  ckpt: null #${ckpt_dir}/model.pth
+  ckpt: ${ckpt_dir}/frozen_model.pth
   freeze: False # freeze Detr layers
   frozen_epochs: 5
   frozen_batch_size: 120
-  num_epochs: 20 # will be set to frozen_epochs if freeze is True
-  batch_size: 60 # will be set to frozen_batch_size if freeze is True
-  num_workers: 30
+  num_epochs: 40 # will be set to frozen_epochs if freeze is True
+  batch_size: 120 # will be set to frozen_batch_size if freeze is True
+  num_workers: 60
   vis_step: 2000
   log_step: 10
   ckpt_step: 2000
