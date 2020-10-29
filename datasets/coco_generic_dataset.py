@@ -14,6 +14,7 @@ from utils.detr_misc import collate_fn as detr_collate_fn
 
 class GenericCocoDataset(Dataset):
     def __init__(self,cfg,subset):
+        super().__init__()
         self.cfg = cfg
         self.subset = subset
         self.samples = io.load_json_object(self.cfg.samples[self.subset])
@@ -30,7 +31,7 @@ class GenericCocoDataset(Dataset):
                 T.ToTensor(),
                 T.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225])
             ])
-        if subset=='val':
+        if subset in ['val','test']:
             self.transforms = T.Compose([
                 T.ToPILImage(mode='RGB'),
                 T.ToTensor(),
