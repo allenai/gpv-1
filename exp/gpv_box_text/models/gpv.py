@@ -102,7 +102,7 @@ class GPV(nn.Module):
         
         self.load_state_dict(curr_model)
 
-    def forward(self,images,queries,answer_token_ids,targets=None):
+    def forward(self,images,queries,answer_token_ids,targets=None,vocab_mask=None):
         device = self.vision_token.device
         outputs = self.detr(images)
 
@@ -139,12 +139,18 @@ class GPV(nn.Module):
             for t in range(self.cfg.max_text_len-1):
                 target = self.answer_input_embedings(target_token_ids)
                 answer_logits = self.decode_text(target,memory) # LxBxSxV
-                top_ids = torch.topk(answer_logits,k=1,dim=-1).indices[:,:,-1] # LxBx1
+                answer_logits = answer_logits[:,:,-1]
+                if vocab_mask is not None:
+                    answer_logits = answer_logits + vocab_mask
+                top_ids = torch.topk(answer_logits,k=1,dim=-1).indices#[:,:,-1] # LxBx1
                 target_token_ids = torch.cat((target_token_ids,top_ids),-1)
             
             target = self.answer_input_embedings(target_token_ids) # BxTXD
-            outputs['answer_logits'] = self.decode_text(target,memory)
+            answer_logits = self.decode_text(target,memory)
+            if vocab_mask is not None:
+                answer_logits = answer_logits + vocab_mask
 
+            outputs['answer_logits'] = answer_logits
         else:
             # sample text with teacher forcing
             target = self.answer_input_embedings(answer_token_ids) # BxTXD
