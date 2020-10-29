@@ -1,6 +1,7 @@
 import os
 import hydra
 from tqdm import tqdm
+from collections import Counter
 
 import utils.io as io
 
@@ -46,6 +47,7 @@ def main(cfg):
             assert(sample['question_id']==anno['question_id'] and \
                 sample['image']['image_id']==anno['image_id']), err_msg
             sample['answer'] = anno['multiple_choice_answer']
+            sample['all_answers'] = Counter([a['answer'] for a in anno['answers']])
             sample['anno'] = {
                 'question_type': anno['question_type'],
                 'answer_type': anno['answer_type']
