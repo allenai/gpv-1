@@ -1,5 +1,5 @@
-exp_name: gpv
-output_dir: /home/tanmayg/Data/gpv/coco_exp/
+exp_name: eval
+output_dir: /home/tanmayg/Data/gpv/coco_exp/gpv
 exp_dir: ${output_dir}/${exp_name}
 tb_dir: ${exp_dir}/tb_logs
 ckpt_dir: ${exp_dir}/ckpts
@@ -104,8 +104,8 @@ training:
   frozen_epochs: 5
   frozen_batch_size: 120
   num_epochs: 40 # will be set to frozen_epochs if freeze is True
-  batch_size: 120 # will be set to frozen_batch_size if freeze is True
-  num_workers: 60
+  batch_size: 40 # will be set to frozen_batch_size if freeze is True
+  num_workers: 20
   vis_step: 2000
   log_step: 10
   ckpt_step: 2000
@@ -114,3 +114,11 @@ training:
   lr_drop: 10
   clip_max_norm: 0.1
   num_vis_samples: 15
+
+eval:
+  task: CocoVqa
+  ckpt: /home/tanmayg/Data/gpv/coco_exp/gpv/ckpts/finetuned_model_196000.pth
+  batch_size: 40
+  num_workers: 20
+  subset: val
+  predict: True
