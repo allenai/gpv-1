@@ -25,3 +25,4 @@ pip install transformers
 pip install nltk
 pip install wget
 pip install PyDictionary
+pip install git+https://github.com/salaniz/pycocoevalcap

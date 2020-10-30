@@ -4,3 +4,6 @@
 [submodule "third_party/detection_metrics"]
 	path = third_party/detection_metrics
 	url = git@github.com:allenai/Object-Detection-Metrics.git
+[submodule "third_party/pycocoevalcap"]
+	path = third_party/pycocoevalcap
+	url = git@github.com:allenai/pycocoevalcap.git
