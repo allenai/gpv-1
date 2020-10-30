@@ -36,6 +36,7 @@ def make_predictions(model,dataloader,samples,cfg):
     predictions = {}
     cnt = 0
     detokenizer = TreebankWordDetokenizer()
+    model.eval()
     for i,data in enumerate(tqdm(dataloader)):
         # if i > 100:
         #     break
