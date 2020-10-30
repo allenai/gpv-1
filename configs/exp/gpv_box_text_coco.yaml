@@ -1,5 +1,5 @@
-exp_name: eval
-output_dir: /home/tanmayg/Data/gpv/coco_exp/gpv
+exp_name: gpv_vqa_only_multiple_answers
+output_dir: /home/tanmayg/Data/gpv/coco_exp
 exp_dir: ${output_dir}/${exp_name}
 tb_dir: ${exp_dir}/tb_logs
 ckpt_dir: ${exp_dir}/ckpts
@@ -23,15 +23,15 @@ defaults:
   - task: coco_learning_tasks
 
 learning_datasets:
-  CocoCaptioning:
-    task_config: coco_captioning
-    name: coco_cap
-  CocoDetection:
-    task_config: coco_detection
-    name: coco_det
-  CocoClassification:
-    task_config: coco_classification
-    name: coco_cls
+  # CocoCaptioning:
+  #   task_config: coco_captioning
+  #   name: coco_cap
+  # CocoDetection:
+  #   task_config: coco_detection
+  #   name: coco_det
+  # CocoClassification:
+  #   task_config: coco_classification
+  #   name: coco_cls
   CocoVqa:
     task_config: coco_vqa
     name: coco_vqa
@@ -99,13 +99,13 @@ losses:
     num_classes: ${model.detr.num_classes}
 
 training:
-  ckpt: ${ckpt_dir}/frozen_model.pth
+  ckpt: /home/tanmayg/Data/gpv/coco_exp/gpv/ckpts/frozen_model.pth
   freeze: False # freeze Detr layers
   frozen_epochs: 5
   frozen_batch_size: 120
   num_epochs: 40 # will be set to frozen_epochs if freeze is True
-  batch_size: 40 # will be set to frozen_batch_size if freeze is True
-  num_workers: 20
+  batch_size: 120 # will be set to frozen_batch_size if freeze is True
+  num_workers: 60
   vis_step: 2000
   log_step: 10
   ckpt_step: 2000
