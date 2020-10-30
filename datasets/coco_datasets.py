@@ -1,4 +1,5 @@
 import os
+import random
 import hydra
 import numpy as np
 import skimage.io as skio
@@ -41,16 +42,16 @@ class CocoVqa(GenericCocoDataset):
         if self.cfg.read_image is True:
             image_subset = sample['image']['subset']
             image_id = sample['image']['image_id']
-            x,y,w,h = sample['boxes']
             img, original_image_size = self.read_image(
-                image_subset,image_id,x,y,w,h)
+                image_subset,image_id)
             img = (255*img).astype(np.uint8)
             img = self.transforms(img)
         
         query = sample['query']
         all_answers = []
         for answer,freq in sample['all_answers'].items():
-            all_answers.extend([answer]*freq)
+            if freq > 2:
+                all_answers.extend([answer]*freq)
 
         targets = {'answer': random.choice(all_answers)}
 
