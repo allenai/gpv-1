@@ -35,6 +35,30 @@ class CocoVqa(GenericCocoDataset):
     def __init__(self,cfg,subset):
         super().__init__(cfg,subset)
 
+    def __getitem__(self,i):
+        sample = self.samples[i]
+
+        if self.cfg.read_image is True:
+            image_subset = sample['image']['subset']
+            image_id = sample['image']['image_id']
+            x,y,w,h = sample['boxes']
+            img, original_image_size = self.read_image(
+                image_subset,image_id,x,y,w,h)
+            img = (255*img).astype(np.uint8)
+            img = self.transforms(img)
+        
+        query = sample['query']
+        all_answers = []
+        for answer,freq in sample['all_answers'].items():
+            all_answers.extend([answer]*freq)
+
+        targets = {'answer': random.choice(all_answers)}
+
+        if self.cfg.read_image is True:
+            return img, query, targets
+        else:
+            return query,targets
+
 class CocoClassification(GenericCocoDataset):
     def __init__(self,cfg,subset):
         super().__init__(cfg,subset)
@@ -84,13 +108,8 @@ class CocoClassification(GenericCocoDataset):
             x,y,w,h = sample['boxes']
             img, original_image_size = self.read_image(
                 image_subset,image_id,x,y,w,h)
-            # img = img.astype(np.float32)
-            # img = (img - 0.5)/0.25
-            # img = torch.as_tensor(img,dtype=torch.float32).permute(2,0,1)
             img = (255*img).astype(np.uint8)
             img = self.transforms(img)
-        # else:
-        #     img = torch.zeros([3,self.imh,self.imw])
         
         query = sample['query']
 

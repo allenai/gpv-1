@@ -90,14 +90,8 @@ class GenericCocoDataset(Dataset):
             image_id = sample['image']['image_id']
             img, original_image_size = self.read_image(
                 image_subset,image_id)
-            #img = img.astype(np.float32)
-            #img = (img - 0.5)/0.25
-            #img = torch.as_tensor(img,dtype=torch.float32).permute(2,0,1)
-            #import ipdb; ipdb.set_trace()
             img = (255*img).astype(np.uint8)
             img = self.transforms(img)
-        # else:
-        #     img = torch.zeros([3,self.imh,self.imw])
         
         query = sample['query']
 
