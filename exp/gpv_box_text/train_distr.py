@@ -1,4 +1,5 @@
 import os
+import nltk
 import hydra
 import torch
 import torch.nn as nn
@@ -316,7 +317,8 @@ def train_worker(gpu,cfg):
 def main(cfg):
     io.mkdir_if_not_exists(cfg.ckpt_dir,recursive=True)
     io.mkdir_if_not_exists(cfg.tb_dir,recursive=True)
-
+    nltk.download('punkt')
+    
     if cfg.training.freeze:
         cfg.training.num_epochs = cfg.training.frozen_epochs
         cfg.training.batch_size = cfg.training.frozen_batch_size
