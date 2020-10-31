@@ -53,7 +53,11 @@ class CocoVqa(GenericCocoDataset):
             if freq > 2:
                 all_answers.extend([answer]*freq)
 
-        targets = {'answer': random.choice(all_answers)}
+        selected_answer = sample['answer']
+        if len(all_answers) > 0:
+            selected_answer = random.choice(all_answers)
+        
+        targets = {'answer': selected_answer}
 
         if self.cfg.read_image is True:
             return img, query, targets
