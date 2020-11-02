@@ -30,16 +30,18 @@ def make_predictions(model,dataloader,samples,cfg):
         tokens,vocab_mask = create_coco_vocab_mask(model)
         vocab_mask = torch.FloatTensor(vocab_mask).cuda(cfg.gpu)
 
+    eval_dir = os.path.join(cfg.exp_dir,'eval')
     boxes_h5py = h5py.File(os.path.join(
-        cfg.exp_dir,f'{cfg.eval.task}_{cfg.eval.subset}_boxes.h5py'),'w')
+        eval_dir,f'{cfg.eval.task}_{cfg.eval.subset}_boxes.h5py'),'w')
     task_id_name = evaluators.task_to_id[cfg.eval.task]
     predictions = {}
     cnt = 0
     detokenizer = TreebankWordDetokenizer()
     model.eval()
     for i,data in enumerate(tqdm(dataloader)):
-        # if i > 100:
-        #     break
+        if (cfg.eval.num_eval_batches is not None) \
+            and (i > cfg.eval.num_eval_batches):
+            break
 
         imgs, queries, targets = data
         imgs = imgs.to(torch.device(cfg.gpu))
@@ -76,7 +78,7 @@ def make_predictions(model,dataloader,samples,cfg):
     io.dump_json_object(
         predictions,
         os.path.join(
-            cfg.exp_dir,
+            eval_dir,
             f'{cfg.eval.task}_{cfg.eval.subset}_predictions.json'))
 
 
@@ -121,6 +123,8 @@ def create_coco_vocab_mask(model,use_syns=False):
 
 @hydra.main(config_path=f'../../configs',config_name=f"exp/gpv_box_text_coco")
 def main(cfg):
+    eval_dir = os.path.join(cfg.exp_dir,'eval')
+    io.mkdir_if_not_exists(eval_dir,recursive=True)
     print(cfg.pretty())
     eval_task = cfg.eval.task
     learning_datasets = {eval_task:cfg.learning_datasets[eval_task]}
@@ -150,10 +154,10 @@ def main(cfg):
             make_predictions(model,dataloader,samples,cfg)
 
     predictions = io.load_json_object(os.path.join(
-        cfg.exp_dir,f'{cfg.eval.task}_{cfg.eval.subset}_predictions.json'))
+        eval_dir,f'{cfg.eval.task}_{cfg.eval.subset}_predictions.json'))
 
     boxes_h5py = h5py.File(os.path.join(
-        cfg.exp_dir,f'{cfg.eval.task}_{cfg.eval.subset}_boxes.h5py'),'r')
+        eval_dir,f'{cfg.eval.task}_{cfg.eval.subset}_boxes.h5py'),'r')
 
     Evaluator = getattr(evaluators,cfg.eval.task)
     evaluator = Evaluator(samples,predictions,boxes_h5py)
@@ -163,7 +167,7 @@ def main(cfg):
 
     io.dump_json_object(
         metrics,
-        os.path.join(cfg.exp_dir,f'{cfg.eval.task}_{cfg.eval.subset}_metrics.json'))
+        os.path.join(eval_dir,f'{cfg.eval.task}_{cfg.eval.subset}_metrics.json'))
 
     boxes_h5py.close()
 
