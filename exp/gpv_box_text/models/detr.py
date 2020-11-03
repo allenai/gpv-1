@@ -18,7 +18,7 @@ from utils.matcher import build_matcher
 
 class DETR(nn.Module):
     """ This is the DETR module that performs object detection """
-    def __init__(self, backbone, transformer, num_classes, num_queries, aux_loss=False):
+    def __init__(self, backbone, transformer, num_classes, num_queries, last_layer_only, aux_loss=False):
         """ Initializes the model.
         Parameters:
             backbone: torch module of the backbone to be used. See backbone.py
@@ -37,6 +37,7 @@ class DETR(nn.Module):
         self.query_embed = nn.Embedding(num_queries, hidden_dim)
         self.input_proj = nn.Conv2d(backbone.num_channels, hidden_dim, kernel_size=1)
         self.backbone = backbone
+        self.last_layer_only = last_layer_only
         self.aux_loss = aux_loss
 
     def forward(self, samples: NestedTensor):
@@ -62,7 +63,8 @@ class DETR(nn.Module):
         assert mask is not None
         hs = self.transformer(self.input_proj(src), mask, self.query_embed.weight, pos[-1])[0]
         L,B,Q,D = hs.size()
-        #hs = hs[-1].view(1,B,Q,D)
+        if (self.last_layer_only is True) or (self.training is not True):
+            hs = hs[-1].view(1,B,Q,D)
         outputs_class = self.class_embed(hs)
         outputs_coord = self.bbox_embed(hs).sigmoid()
         out = {'pred_relevance_logits': outputs_class[-1], 'pred_boxes': outputs_coord[-1], 'detr_hs': hs}
@@ -104,6 +106,7 @@ def create_detr(cfg):
         transformer,
         num_classes=cfg.num_classes,
         num_queries=cfg.num_queries,
+        last_layer_only=cfg.last_layer_only,
         aux_loss=cfg.aux_loss)
     
     return model
