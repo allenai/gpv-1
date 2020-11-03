@@ -1,4 +1,4 @@
-exp_name: gpv_vqa_only_multiple_answers
+exp_name: gpv_vqa_only_multiple_answers_blind
 output_dir: /home/tanmayg/Data/gpv/coco_exp
 exp_dir: ${output_dir}/${exp_name}
 tb_dir: ${exp_dir}/tb_logs
@@ -40,7 +40,7 @@ model:
   pretr_detr: /home/tanmayg/Data/gpv/coco_exp/detr-r50-e632da11.pth
   vocab: /home/tanmayg/Data/gpv/learning_phase_data/vocab/vocab.json
   vocab_embed: /home/tanmayg/Data/gpv/learning_phase_data/vocab/vocab_embed.npy
-  max_text_len: 20
+  max_text_len: 5 #20
   detr:
     num_queries: 100
     num_classes: 1
@@ -58,6 +58,7 @@ model:
     pre_norm: False #True
     aux_loss: True
     frozenbatchnorm: True
+    last_layer_only: True
   bert_joiner:
     bert_dim: 768
     out_dim: ${model.detr.hidden_dim}
@@ -102,8 +103,8 @@ training:
   ckpt: /home/tanmayg/Data/gpv/coco_exp/gpv/ckpts/frozen_model.pth
   freeze: False # freeze Detr layers
   frozen_epochs: 5
-  frozen_batch_size: 120
-  num_epochs: 40 # will be set to frozen_epochs if freeze is True
+  frozen_batch_size: 64
+  num_epochs: 20 # will be set to frozen_epochs if freeze is True
   batch_size: 120 # will be set to frozen_batch_size if freeze is True
   num_workers: 60
   vis_step: 2000
@@ -111,14 +112,15 @@ training:
   ckpt_step: 2000
   lr: 1e-4
   weight_decay: 1e-4
-  lr_drop: 10
+  lr_drop: 5
   clip_max_norm: 0.1
   num_vis_samples: 15
 
 eval:
   task: CocoVqa
-  ckpt: /home/tanmayg/Data/gpv/coco_exp/gpv/ckpts/finetuned_model_196000.pth
-  batch_size: 40
+  ckpt: ${exp_dir}/ckpts/model.pth
+  batch_size: 20
   num_workers: 20
-  subset: val
+  subset: train
   predict: True
+  num_eval_batches: 1000 # set to null to evaluate on full dataset
