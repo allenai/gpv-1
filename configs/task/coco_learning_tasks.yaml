@@ -4,6 +4,7 @@ image_size:
   H: 480
   W: 640
 read_image: True
+coco_feats: /home/tanmayg/Data/gpv/learning_phase_data/vg_det_feats
 
 coco_captioning:
   image_dir: ${task_configs.image_dir}
@@ -56,3 +57,4 @@ coco_vqa:
     train: null
     val: null
     test: null
+  feats: ${task_configs.coco_feats}
