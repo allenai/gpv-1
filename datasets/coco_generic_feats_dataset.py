@@ -7,17 +7,30 @@ import torch
 from torch.utils.data import DataLoader, Dataset
 from torch.utils.data.dataloader import default_collate
 import torchvision.transforms as T
+import pickle
+import lmdb
 
 import utils.io as io
 from utils.detr_misc import collate_fn as detr_collate_fn
 
 
-class GenericCocoFeatsDataset(Dataset):
+class GenericCocoDataset(Dataset):
     def __init__(self,cfg,subset):
         super().__init__()
         self.cfg = cfg
         self.subset = subset
         self.samples = io.load_json_object(self.cfg.samples[self.subset])
+        # self.feats_env = lmdb.open(
+        #     self.cfg.feats,
+        #     max_readers=100,
+        #     readonly=True,
+        #     lock=False,
+        #     readahead=False,
+        #     meminit=False,
+        # )
+        # with self.feats_env.begin(write=False) as txn:
+        #     self._image_ids = pickle.loads(txn.get("keys".encode()))
+
         self.imh = self.cfg.image_size.H
         self.imw = self.cfg.image_size.W
         self.mean = torch.FloatTensor([0.485, 0.456, 0.406])
@@ -82,6 +95,22 @@ class GenericCocoFeatsDataset(Dataset):
         bbox[:,3] = bbox[:,3] / H   # y2 or h
         return bbox
 
+    def read_features(self,image_id):
+        feats_env = lmdb.open(
+            self.cfg.feats,
+            max_readers=1,
+            readonly=True,
+            lock=False,
+            readahead=False,
+            meminit=False,
+        )
+        with feats_env.begin(write=False) as txn:
+            item = pickle.loads(txn.get(str(image_id).encode()))
+            features = item["features"].reshape(-1, 2048)
+        
+        #feats_env.close()
+        return features#[:30]
+
     def __getitem__(self,i):
         sample = self.samples[i]
 
@@ -92,6 +121,7 @@ class GenericCocoFeatsDataset(Dataset):
                 image_subset,image_id)
             img = (255*img).astype(np.uint8)
             img = self.transforms(img)
+            feats = self.read_features(image_id)
         
         query = sample['query']
 
@@ -114,7 +144,7 @@ class GenericCocoFeatsDataset(Dataset):
             targets['answer'] = sample['answer']
 
         if self.cfg.read_image is True:
-            return img, query, targets
+            return img, feats, query, targets
         else:
             return query,targets
     
@@ -129,18 +159,22 @@ class GenericCocoFeatsDataset(Dataset):
         return imgs
 
     def get_collate_fn(self):
-        return detr_collate_fn
+        def feat_collate_fn(batch):
+            batch = detr_collate_fn(batch)
+            return (batch[0],default_collate(batch[1]),*batch[2:])
+        
+        return feat_collate_fn
                 
     def get_dataloader(self,**kwargs):
         collate_fn = self.get_collate_fn()
         return DataLoader(self,collate_fn=collate_fn,**kwargs)
 
 
-@hydra.main(config_path="../configs",config_name="test/coco_datasets")
+@hydra.main(config_path="../configs",config_name="test/coco_feats_datasets")
 def test_dataset(cfg):
     print(cfg.pretty())
-    dataset = GenericCocoDataset(cfg.task_configs.coco_detection,'train')
-    dataloader = dataset.get_dataloader(batch_size=2)
+    dataset = GenericCocoDataset(cfg.task_configs.coco_vqa,'train')
+    dataloader = dataset.get_dataloader(batch_size=10)
     for data in dataloader:
         import ipdb; ipdb.set_trace()
 
