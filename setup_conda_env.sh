@@ -26,3 +26,5 @@ pip install nltk
 pip install wget
 pip install PyDictionary
 pip install git+https://github.com/salaniz/pycocoevalcap
+pip install lmdb
+pip install git+https://github.com/ildoonet/pytorch-gradual-warmup-lr.git
