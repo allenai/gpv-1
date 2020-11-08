@@ -94,11 +94,11 @@ losses:
     num_classes: ${model.detr.num_classes}
 
 training:
-  ckpt: null #/home/tanmayg/Data/gpv/coco_exp/gpv/ckpts/frozen_model.pth
+  ckpt: ${ckpt_dir}/model_bkp.pth #/home/tanmayg/Data/gpv/coco_exp/gpv/ckpts/frozen_model.pth
   freeze: False # freeze Detr layers
   frozen_epochs: 5
   frozen_batch_size: 64
-  num_epochs: 20 # will be set to frozen_epochs if freeze is True
+  num_epochs: 40 # will be set to frozen_epochs if freeze is True
   batch_size: 120 #40 # will be set to frozen_batch_size if freeze is True
   num_workers: 60 # 30
   vis_step: 2000
@@ -109,6 +109,10 @@ training:
   lr_milestones:
     - 10
     - 15
+    - 20
+    - 25
+    - 30
+    - 35
   lr_drop: 0.5
   lr_warmup: True
   clip_max_norm: 0 #0.1
