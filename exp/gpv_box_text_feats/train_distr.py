@@ -290,16 +290,18 @@ def train_worker(gpu,cfg):
                 state_dict[k] = v
 
         model.load_state_dict(state_dict)
+        optimizer.load_state_dict(ckpt['optimizer'])
         step = ckpt['step']
         last_epoch = ckpt['epoch']
 
     lr_scheduler = torch.optim.lr_scheduler.MultiStepLR(
         optimizer,
         cfg.training.lr_milestones,
-        cfg.training.lr_drop)
+        cfg.training.lr_drop,
+        last_epoch=last_epoch)
     
     warmup_iters = len(dataloaders['train'])
-    if cfg.training.lr_warmup is True:
+    if last_epoch==-1 and cfg.training.lr_warmup is True:
         warmup_scheduler = GradualWarmupScheduler(
             optimizer,
             multiplier=1,
