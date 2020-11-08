@@ -195,6 +195,13 @@ def feat_collate_fn(batch):
     batch = detr_collate_fn(batch)
     return (batch[0],default_collate(batch[1]),*batch[2:])
 
+def get_lrs(optimizer):
+    lrs = []
+    for param_group in optimizer.param_groups:
+        lrs.append(param_group['lr'])
+    
+    return lrs
+
 def train_worker(gpu,cfg):
     cfg.gpu = gpu
     if cfg.gpu is not None:
@@ -290,11 +297,15 @@ def train_worker(gpu,cfg):
         optimizer,
         cfg.training.lr_milestones,
         cfg.training.lr_drop)
-    warmup_iters = len(len(dataloaders['train']))
-    warmup_scheduler = GradualWarmupScheduler(
-        optimizer,
-        multiplier=1,
-        total=warmup_iters)
+    
+    warmup_iters = len(dataloaders['train'])
+    if cfg.training.lr_warmup is True:
+        warmup_scheduler = GradualWarmupScheduler(
+            optimizer,
+            multiplier=1,
+            total_epoch=warmup_iters) # updated every iter not epoch
+        if gpu==0:
+            print('Warmup iters:',warmup_iters)
 
     # zero grad step needed for warmup scheduler
     optimizer.zero_grad()
@@ -358,10 +369,15 @@ def train_worker(gpu,cfg):
                 writer.add_scalar('Epoch',epoch,step)
                 writer.add_scalar('Iter',it,step)
                 writer.add_scalar('Step',step,step)
-                writer.add_scalar(
-                    'Lr/all_except_backbone',
-                    lr_scheduler.get_last_lr()[0],
-                    step)
+                # writer.add_scalar(
+                #     'Lr/all_except_backbone',
+                #     lr_scheduler.get_last_lr()[0],
+                #     step)
+                for j,group_lr in enumerate(get_lrs(optimizer)):
+                    writer.add_scalar(
+                        f'Lr/optimizer/group_{j}',
+                        group_lr,
+                        step)
                 for loss_name,loss_value in losses.items():
                     if loss_value is None:
                         continue
@@ -393,7 +409,7 @@ def train_worker(gpu,cfg):
 
             step += 1
 
-            if epoch==0 and it < warmup_iters:
+            if cfg.training.lr_warmup is True and epoch==0 and it < warmup_iters:
                 warmup_scheduler.step(it)
 
         lr_scheduler.step()
