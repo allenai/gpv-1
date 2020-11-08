@@ -21,11 +21,11 @@ def build_transformer_decoder(cfg):
 
 
 class AnswerInputEmbedding(nn.Module):
-    def __init__(self,weight,transform):
+    def __init__(self,weight,transform,freeze_embeddings):
         super().__init__()
         self.transform = transform
         self.embedding_layer = nn.Embedding.from_pretrained(
-            weight,freeze=True)
+            weight,freeze=freeze_embeddings)
     
     def forward(self,token_ids):
         embed = self.embedding_layer(token_ids)
@@ -68,7 +68,9 @@ class GPV(nn.Module):
             cfg.bert_joiner.bert_dim,
             cfg.bert_joiner.out_dim)
         self.answer_input_embedings = AnswerInputEmbedding(
-            self.answer_head.vocab_embed.data,answer_input_transform) #self.bert_joiner)
+            self.answer_head.vocab_embed.data,
+            answer_input_transform,
+            freeze_embeddings=(self.cfg.answer_head!='linear')) #self.bert_joiner)
         # self.answer_input_embedings = nn.Embedding(
         #     len(self.vocab),
         #     cfg.text_decoder.hidden_dim)
