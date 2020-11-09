@@ -94,7 +94,7 @@ losses:
     num_classes: ${model.detr.num_classes}
 
 training:
-  ckpt: ${ckpt_dir}/model_bkp.pth #/home/tanmayg/Data/gpv/coco_exp/gpv/ckpts/frozen_model.pth
+  ckpt: null #${ckpt_dir}/model_bkp.pth #/home/tanmayg/Data/gpv/coco_exp/gpv/ckpts/frozen_model.pth
   freeze: False # freeze Detr layers
   frozen_epochs: 5
   frozen_batch_size: 64
