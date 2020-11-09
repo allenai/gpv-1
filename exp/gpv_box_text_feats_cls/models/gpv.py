@@ -181,26 +181,17 @@ class GPV(nn.Module):
                 answers[i] = t['answer']
 
         padded_inputs = [None]*len(answers)
-        S = 0
-        for i,answer in enumerate(answers):
-            if answer=='':
-                sent = f'__cls__ __stop__'
-            else:
-                sent = f'__cls__ {answer} __stop__'
-            padded_inputs[i] = [w.lower() for w in word_tokenize(sent)]
-            S = max(S,len(padded_inputs[i]))
-        
         padded_token_ids = [None]*len(answers)
-        for i,padded_tokens in enumerate(padded_inputs):
-            padded_tokens.extend(['__pad__']*(S-len(padded_tokens)))
-            token_ids = [None]*S
-            for j in range(S):
-                if padded_tokens[j] in self.word_to_idx:
-                    token_ids[j] = self.word_to_idx[padded_tokens[j]]
+        for i,answer in enumerate(answers):
+            padded_inputs[i] = ['__cls__',answer]
+            padded_token_ids[i] = []
+            for token in padded_inputs[i]:
+                if token in self.word_to_idx:
+                    token_id = self.word_to_idx[token]
                 else:
-                    token_ids[j] = self.word_to_idx['__unk__']
-
-            padded_token_ids[i] = token_ids[:self.cfg.max_text_len]
+                    token_id = self.word_to_idx['__unk__']
+                
+                padded_token_ids[i].append(token_id)
 
         device = self.vision_token.device
         padded_token_ids = torch.LongTensor(padded_token_ids).cuda(device)
