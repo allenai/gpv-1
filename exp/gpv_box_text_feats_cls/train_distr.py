@@ -416,7 +416,7 @@ def train_worker(gpu,cfg):
 
         lr_scheduler.step()
 
-@hydra.main(config_path=f'../../configs',config_name=f"exp/gpv_box_text_coco_feats")
+@hydra.main(config_path=f'../../configs',config_name=f"exp/gpv_box_text_coco_feats_cls")
 def main(cfg):
     io.mkdir_if_not_exists(cfg.ckpt_dir,recursive=True)
     io.mkdir_if_not_exists(cfg.tb_dir,recursive=True)
