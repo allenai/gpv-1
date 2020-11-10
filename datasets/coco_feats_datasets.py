@@ -51,8 +51,7 @@ class CocoVqa(GenericCocoDataset):
         query = sample['query']
         all_answers = []
         for answer,freq in sample['all_answers'].items():
-            if freq > 2:
-                all_answers.extend([answer]*freq)
+            all_answers.extend([answer]*freq)
 
         selected_answer = sample['answer']
         if len(all_answers) > 0:
