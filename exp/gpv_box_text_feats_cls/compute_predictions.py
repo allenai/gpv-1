@@ -124,11 +124,12 @@ def create_coco_vocab_mask(model,use_syns=False):
     return tokens, mask
     
 
-@hydra.main(config_path=f'../../configs',config_name=f"exp/gpv_box_text_coco_feats")
+@hydra.main(config_path=f'../../configs',config_name=f"exp/gpv_box_text_coco_feats_cls")
 def main(cfg):
     eval_dir = os.path.join(cfg.exp_dir,'eval')
     io.mkdir_if_not_exists(eval_dir,recursive=True)
     print(cfg.pretty())
+    print(cfg.exp_dir)
     eval_task = cfg.eval.task
     learning_datasets = {eval_task:cfg.learning_datasets[eval_task]}
     dataset = CocoMultitaskDataset(
