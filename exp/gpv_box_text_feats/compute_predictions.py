@@ -129,6 +129,7 @@ def main(cfg):
     eval_dir = os.path.join(cfg.exp_dir,'eval')
     io.mkdir_if_not_exists(eval_dir,recursive=True)
     print(cfg.pretty())
+    print(cfg.exp_dir)
     eval_task = cfg.eval.task
     learning_datasets = {eval_task:cfg.learning_datasets[eval_task]}
     dataset = CocoMultitaskDataset(

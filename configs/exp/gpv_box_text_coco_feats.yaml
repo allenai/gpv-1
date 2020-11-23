@@ -1,4 +1,4 @@
-exp_name: gpv_feats_vqa_only_multiple_answers_100_boxes_lr_mils_10_15_drop_0.5_answer_head_linear_bs_120_warmup
+exp_name: gpv_feats_vqa_only_multiple_answers_100_boxes_lr_mils_10_15_drop_0.5_answer_head_tied_bs_120_warmup_partial_credit
 output_dir: /home/tanmayg/Data/gpv/coco_exp
 exp_dir: ${output_dir}/${exp_name}
 tb_dir: ${exp_dir}/tb_logs
@@ -41,7 +41,7 @@ model:
   vocab: /home/tanmayg/Data/gpv/learning_phase_data/vocab/vocab.json
   vocab_embed: /home/tanmayg/Data/gpv/learning_phase_data/vocab/vocab_embed.npy
   max_text_len: 5 #20
-  answer_head: linear
+  answer_head: null
   detr:
     num_queries: 100
     num_classes: 1

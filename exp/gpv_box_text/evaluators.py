@@ -51,10 +51,11 @@ class CocoVqa(CocoEval):
             gt_answers = {k.lower():v for k,v in sample['all_answers'].items()}
             answer_type = sample['anno']['answer_type']
             question_type = sample['anno']['question_type']
-            if pred_answer in gt_answers and gt_answers[pred_answer] >= 3:
-                correct['all'] += 1
-                correct['answer_type'][answer_type] += 1
-                correct['question_type'][question_type] += 1
+            if pred_answer in gt_answers:
+                correctness = min(gt_answers[pred_answer]/3,1)
+                correct['all'] += correctness
+                correct['answer_type'][answer_type] += correctness
+                correct['question_type'][question_type] += correctness
                 
             total['all'] += 1
             total['answer_type'][answer_type] += 1

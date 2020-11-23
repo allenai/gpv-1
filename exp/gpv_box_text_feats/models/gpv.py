@@ -61,7 +61,7 @@ class GPV(nn.Module):
         answer_transform = nn.Linear(
             cfg.bert_joiner.bert_dim,
             cfg.bert_joiner.out_dim)
-        self.answer_head = build_answer_head(cfg,answer_transform) #self.bert_joiner)
+        self.answer_head = build_answer_head(cfg,answer_transform)
         self.vocab = self.answer_head.vocab
         self.word_to_idx = {w:i for i,w in enumerate(self.vocab)}
         answer_input_transform = nn.Linear(
@@ -70,10 +70,7 @@ class GPV(nn.Module):
         self.answer_input_embedings = AnswerInputEmbedding(
             self.answer_head.vocab_embed.data,
             answer_input_transform,
-            freeze_embeddings=(self.cfg.answer_head!='linear')) #self.bert_joiner)
-        # self.answer_input_embedings = nn.Embedding(
-        #     len(self.vocab),
-        #     cfg.text_decoder.hidden_dim)
+            freeze_embeddings=(self.cfg.answer_head!='linear'))
     
         # indicator tokens
         self.vision_token = nn.Parameter(

@@ -171,8 +171,9 @@ def vqa_accuracy(model,dataloader,cfg):
             pred_answer = detokenizer.detokenize([w for w in pred_answers[b] if 
                 w not in ['__stop__','__pad__']])
             answers = samples[total]['all_answers']
-            if pred_answer in answers and answers[pred_answer] >= 3:
-                correct += 1
+            if pred_answer in answers:
+                correctness = min(answers[pred_answer]/3,1)
+                correct += correctness
                 
             total += 1
         
