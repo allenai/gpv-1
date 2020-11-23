@@ -17,7 +17,15 @@ def build_transformer_decoder(cfg):
         dropout=cfg.dropout,
         nhead=cfg.nheads)
     
-    return nn.TransformerDecoder(decoder_layer,cfg.num_layers)
+    norm_layer = None
+    if cfg.norm is True:
+        norm_layer = nn.LayerNorm(cfg.hidden_dim)
+    
+    return nn.TransformerDecoder(
+        decoder_layer,
+        cfg.num_layers,
+        norm=norm_layer)
+    
 
 
 class AnswerInputEmbedding(nn.Module):
