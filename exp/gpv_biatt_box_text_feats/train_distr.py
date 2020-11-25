@@ -314,7 +314,7 @@ def train_worker(gpu,cfg):
     optimizer.zero_grad()
     optimizer.step()
     for epoch in range(last_epoch+1,cfg.training.num_epochs):
-        if gpu==0:
+        if gpu==0 and epoch>0:
             for eval_subset in ['train','val']:
                 print(f'Evaluating {eval_subset}')
                 vqa_dataset = dataloaders[eval_subset].dataset.datasets['coco_vqa']
@@ -417,7 +417,7 @@ def train_worker(gpu,cfg):
 
         lr_scheduler.step()
 
-@hydra.main(config_path=f'../../configs',config_name=f"exp/gpv_box_text_coco_feats")
+@hydra.main(config_path=f'../../configs',config_name=f"exp/gpv_biatt_box_text_coco_feats")
 def main(cfg):
     io.mkdir_if_not_exists(cfg.ckpt_dir,recursive=True)
     io.mkdir_if_not_exists(cfg.tb_dir,recursive=True)
