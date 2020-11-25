@@ -1,3 +1,4 @@
+import copy
 import nltk
 from nltk.tokenize import word_tokenize
 import torch
@@ -7,6 +8,7 @@ from transformers import BertTokenizer, BertModel
 from .detr import create_detr
 from .bert import Bert
 from .answer_head import build_answer_head
+from .vilbert import BertConnectionLayer
 from .losses import GPVCriterion
 import utils.io as io
 
@@ -48,9 +50,12 @@ class GPV(nn.Module):
             cfg.bert_joiner.out_dim)
         
         # encode vision with language context and vice versa
-        self.vl_transformer = build_transformer_decoder(cfg.vl_transformer)
-        self.lv_transformer = build_transformer_decoder(cfg.lv_transformer)
-
+        #self.vl_transformer = build_transformer_decoder(cfg.vl_transformer)
+        #self.lv_transformer = build_transformer_decoder(cfg.lv_transformer)
+        layer = BertConnectionLayer(cfg.co_att)
+        self.co_att_transformer = nn.ModuleList(
+            [copy.deepcopy(layer) for _ in range(cfg.co_att.num_layers)])
+            
         # relevance predictor that operates on vl output
         self.relevance_predictor = nn.Linear(
             cfg.detr.hidden_dim,
@@ -108,8 +113,23 @@ class GPV(nn.Module):
         
         query_encodings = self.bert_joiner(query_encodings.detach())
 
+        #import ipdb; ipdb.set_trace()
+        lv_hs = query_encodings
+        vl_hs = outputs['detr_hs'][-1]
+        for layer in self.co_att_transformer:
+            lv_hs, vl_hs, _ = layer(
+                input_tensor1=lv_hs,
+                attention_mask1=None,
+                input_tensor2=vl_hs,
+                attention_mask2=None)
+        
+        B,Tl,D = lv_hs.size()
+        _,Tv,_ = vl_hs.size()
+        lv_hs = lv_hs.view(1,B,Tl,D)
+        vl_hs = vl_hs.view(1,B,Tv,D)
+        #import ipdb; ipdb.set_trace()
         # vl encoding and relevance prediction
-        vl_hs = self.encode_v_with_l_context(outputs,query_encodings) # LxBxRxD
+        #vl_hs = self.encode_v_with_l_context(outputs,query_encodings) # LxBxRxD
         relevance_logits = self.relevance_predictor(vl_hs)
         outputs['pred_relevance_logits'] = \
             outputs['pred_relevance_logits'] + relevance_logits[-1] #BxRx2
@@ -119,11 +139,11 @@ class GPV(nn.Module):
                     aux_outputs['pred_relevance_logits'] + relevance_logits[i]
         
         # condition vl encoding on relevance prediction
-        vl_hs = self.condition_on_relevance(
-            outputs['pred_relevance_logits'],vl_hs)
+        # vl_hs = self.condition_on_relevance(
+        #     outputs['pred_relevance_logits'],vl_hs)
 
         # lv encoding
-        lv_hs = self.encode_l_with_v_context(outputs,query_encodings)
+        #lv_hs = self.encode_l_with_v_context(outputs,query_encodings)
 
         # concat vl and lv to create a memory for text decoding
         memory = torch.cat((vl_hs,lv_hs),2)
@@ -222,8 +242,8 @@ class GPV(nn.Module):
 
     def encode_l_with_v_context(self,outputs,query_encodings):
         detr_hs = outputs['detr_hs']
-        detr_hs = self.condition_on_relevance(
-            outputs['pred_relevance_logits'],detr_hs)
+        # detr_hs = self.condition_on_relevance(
+        #     outputs['pred_relevance_logits'],detr_hs)
         L = detr_hs.size(0)
         B,T,D = query_encodings.size()
         query_encodings = query_encodings.view(1,B,T,D).repeat(L,1,1,1)
@@ -263,7 +283,7 @@ class GPV(nn.Module):
         tgt_mask = torch.zeros((Tt,Tt))
         for t in range(Tt):
             for j in range(t+1,Tt):
-                tgt_mask[t,j] = 1
+                tgt_mask[t,j] = float('-inf')#1
         
         device = self.vision_token.device
         tgt_mask = tgt_mask.bool().cuda(device)#.view(T,T).repeat(12,1,1)
