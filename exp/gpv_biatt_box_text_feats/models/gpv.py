@@ -197,30 +197,49 @@ class GPV(nn.Module):
             if 'answer' in t:
                 answers[i] = t['answer']
 
-        padded_inputs = [None]*len(answers)
-        S = 0
-        for i,answer in enumerate(answers):
-            if answer=='':
-                sent = f'__cls__ __stop__'
-            else:
-                sent = f'__cls__ {answer} __stop__'
-            padded_inputs[i] = [w.lower() for w in word_tokenize(sent)]
-            S = max(S,len(padded_inputs[i]))
+        if self.cfg.answer_encoding_type=='classification':
+            padded_inputs = [None]*len(answers)
+            padded_token_ids = [None]*len(answers)
+            for i,answer in enumerate(answers):
+                padded_inputs[i] = ['__cls__',answer]
+                padded_token_ids[i] = []
+                for token in padded_inputs[i]:
+                    if token in self.word_to_idx:
+                        token_id = self.word_to_idx[token]
+                    else:
+                        token_id = self.word_to_idx['__unk__']
+                    
+                    padded_token_ids[i].append(token_id)
+
+            device = self.vision_token.device
+            padded_token_ids = torch.LongTensor(padded_token_ids).cuda(device)
         
-        padded_token_ids = [None]*len(answers)
-        for i,padded_tokens in enumerate(padded_inputs):
-            padded_tokens.extend(['__pad__']*(S-len(padded_tokens)))
-            token_ids = [None]*S
-            for j in range(S):
-                if padded_tokens[j] in self.word_to_idx:
-                    token_ids[j] = self.word_to_idx[padded_tokens[j]]
+        else:
+            padded_inputs = [None]*len(answers)
+            S = 0
+            for i,answer in enumerate(answers):
+                if answer=='':
+                    sent = f'__cls__ __stop__'
                 else:
-                    token_ids[j] = self.word_to_idx['__unk__']
+                    sent = f'__cls__ {answer} __stop__'
+                padded_inputs[i] = [w.lower() for w in word_tokenize(sent)]
+                S = max(S,len(padded_inputs[i]))
+            
+            padded_token_ids = [None]*len(answers)
+            for i,padded_tokens in enumerate(padded_inputs):
+                padded_tokens.extend(['__pad__']*(S-len(padded_tokens)))
+                token_ids = [None]*S
+                for j in range(S):
+                    if padded_tokens[j] in self.word_to_idx:
+                        token_ids[j] = self.word_to_idx[padded_tokens[j]]
+                    else:
+                        token_ids[j] = self.word_to_idx['__unk__']
 
-            padded_token_ids[i] = token_ids[:self.cfg.max_text_len]
+                padded_token_ids[i] = token_ids[:self.cfg.max_text_len]
 
-        device = self.vision_token.device
-        padded_token_ids = torch.LongTensor(padded_token_ids).cuda(device)
+            device = self.vision_token.device
+            padded_token_ids = torch.LongTensor(padded_token_ids).cuda(device)
+        
         return padded_inputs, padded_token_ids
         
     def token_ids_to_words(self,token_ids):
@@ -286,6 +305,7 @@ class GPV(nn.Module):
                 tgt_mask[t,j] = float('-inf')#1
         
         device = self.vision_token.device
+        #tgt_mask = tgt_mask.cuda(device)
         tgt_mask = tgt_mask.bool().cuda(device)#.view(T,T).repeat(12,1,1)
         to_decode = self.text_decoder(
             target,memory,tgt_mask).permute(1,0,2).view(L,B,-1,D)
