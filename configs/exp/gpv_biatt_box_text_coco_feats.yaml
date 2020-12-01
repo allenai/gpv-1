@@ -6,7 +6,7 @@ ckpt_dir: ${exp_dir}/ckpts
 
 gpu: 0
 num_nodes: 1
-ngpus_per_node: 4 #8
+ngpus_per_node: 4
 world_size: null  #computed dynamically as num_nodes*ngpus_per_node
 rank: 0
 workers: ${training.num_workers}
