@@ -197,7 +197,7 @@ class GPV(nn.Module):
             if 'answer' in t:
                 answers[i] = t['answer']
 
-        if self.cfg.answer_encoding_type=='classification':
+        if self.cfg.answering_type=='classification':
             padded_inputs = [None]*len(answers)
             padded_token_ids = [None]*len(answers)
             for i,answer in enumerate(answers):
@@ -214,7 +214,7 @@ class GPV(nn.Module):
             device = self.vision_token.device
             padded_token_ids = torch.LongTensor(padded_token_ids).cuda(device)
         
-        else:
+        elif self.cfg.answering_type=='generation':
             padded_inputs = [None]*len(answers)
             S = 0
             for i,answer in enumerate(answers):
@@ -239,6 +239,9 @@ class GPV(nn.Module):
 
             device = self.vision_token.device
             padded_token_ids = torch.LongTensor(padded_token_ids).cuda(device)
+        
+        else:
+            raise NotImplementedError
         
         return padded_inputs, padded_token_ids
         
