@@ -1,4 +1,4 @@
-exp_name: gpv_biatt_feats_vqa_only_multiple_answers_100_boxes_lr_mils_10_15_drop_0.5_answer_head_tied_bs_120_warmup_partial_credit_inf_mask_3072_interm
+exp_name: gpv_biatt_feats_vqa_only_multiple_answers_100_boxes_lr_linear_decay_answer_head_tied_bs_120_warmup_partial_credit_inf_mask_3072_interm
 output_dir: /home/tanmayg/Data/gpv/coco_exp
 exp_dir: ${output_dir}/${exp_name}
 tb_dir: ${exp_dir}/tb_logs
@@ -133,6 +133,8 @@ training:
     - 35
   lr_drop: 0.5
   lr_warmup: True
+  lr_linear_decay: True
+  lr_warmup_fraction: 0.1
   clip_max_norm: 0 #0.1
   num_vis_samples: 15
   num_val_samples: 20000
