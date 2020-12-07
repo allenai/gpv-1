@@ -103,10 +103,13 @@ class GPV(nn.Module):
         device = self.vision_token.device
         outputs = self.detr(feats)
 
-        with torch.no_grad():
+        if self.cfg.freeze_bert:
+            with torch.no_grad():
+                query_encodings, token_inputs = self.bert(queries,device) 
+            query_encodings = self.bert_joiner(query_encodings.detach())
+        else:
             query_encodings, token_inputs = self.bert(queries,device)
-        
-        query_encodings = self.bert_joiner(query_encodings.detach())
+            query_encodings = self.bert_joiner(query_encodings)
 
         # vl encoding and relevance prediction
         vl_hs = self.encode_v_with_l_context(outputs,query_encodings) # LxBxRxD
