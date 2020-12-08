@@ -268,8 +268,12 @@ def train_worker(gpu,cfg):
     if gpu==0:
         writer = SummaryWriter(log_dir=cfg.tb_dir)
 
-    other_params = [p for n, p in model.named_parameters() \
-            if ('bert.' not in n) and p.requires_grad]
+    if cfg.model.freeze_bert:
+        other_params = [p for n, p in model.named_parameters() \
+                if ('bert.' not in n) and p.requires_grad]
+    else:
+        other_params = [p for n, p in model.named_parameters() \
+                if p.requires_grad]
     param_dicts = [
         {'params': other_params}]
     optimizer = torch.optim.AdamW(

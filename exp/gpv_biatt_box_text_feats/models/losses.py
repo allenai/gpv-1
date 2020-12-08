@@ -15,7 +15,7 @@ class AnswerClassification(nn.Module):
             ignore_index = cfg.pad_idx
 
         self.ce_loss = nn.CrossEntropyLoss(
-            reduce=False,ignore_index=ignore_index)
+            reduction='none',ignore_index=ignore_index)
 
     def forward(self,outputs,targets):
         idx_filtered_targets = [(

@@ -15,6 +15,7 @@ from torch.utils.data import DataLoader
 from nltk.tokenize.treebank import TreebankWordDetokenizer
 from tqdm import tqdm
 from warmup_scheduler import GradualWarmupScheduler
+from pytorch_transformers.optimization import WarmupLinearSchedule
 
 from .models.gpv import GPV
 from .models.losses import GPVCriterion
@@ -292,6 +293,8 @@ def train_worker(gpu,cfg):
 
         model.load_state_dict(state_dict)
         optimizer.load_state_dict(ckpt['optimizer'])
+        if cfg.training.lr_linear_decay:
+            warmup_scheduler.load_state_dict(ckpt['warmup_scheduler'])
         step = ckpt['step']
         last_epoch = ckpt['epoch']
 
@@ -303,16 +306,25 @@ def train_worker(gpu,cfg):
     
     warmup_iters = len(dataloaders['train'])
     if last_epoch==-1 and cfg.training.lr_warmup is True:
-        warmup_scheduler = GradualWarmupScheduler(
-            optimizer,
-            multiplier=1,
-            total_epoch=warmup_iters) # updated every iter not epoch
-        if gpu==0:
-            print('Warmup iters:',warmup_iters)
+        if cfg.training.lr_linear_decay:
+            num_train_optimization_steps = len(dataloaders['train']) * cfg.training.num_epochs
+            warmpu_steps = cfg.training.lr_warmup_fraction * num_train_optimization_steps
+            warmup_scheduler = WarmupLinearSchedule(
+                    optimizer, warmup_steps=warmpu_steps, t_total=num_train_optimization_steps
+                    )
+        else:
+            warmup_scheduler = GradualWarmupScheduler(
+                optimizer,
+                multiplier=1,
+                total_epoch=warmup_iters) # updated every iter not epoch
+            if gpu==0:
+                print('Warmup iters:',warmup_iters)
 
-    # zero grad step needed for warmup scheduler
-    optimizer.zero_grad()
-    optimizer.step()
+    if cfg.training.lr_warmup and not cfg.training.lr_linear_decay:
+        # zero grad step needed for warmup scheduler
+        optimizer.zero_grad()
+        optimizer.step()
+
     for epoch in range(last_epoch+1,cfg.training.num_epochs):
         if gpu==0 and epoch>0:
             for eval_subset in ['train','val']:
@@ -367,6 +379,8 @@ def train_worker(gpu,cfg):
             
             if gpu==0 and step%cfg.training.log_step==0:
                 loss_str = f'Epoch: {epoch} | Iter: {it} | Step: {step} | '
+                if cfg.training.lr_linear_decay:
+                    loss_str += f' LR: {warmup_scheduler.get_last_lr()[0]} | '
                 loss_value = round(total_loss.item(),4)
                 loss_str += f'total_loss: {loss_value} | '
                 writer.add_scalar('Epoch',epoch,step)
@@ -407,15 +421,19 @@ def train_worker(gpu,cfg):
                     'epoch': epoch,
                     'iter': it,
                     'step': step,
-                    'lr': lr_scheduler.get_last_lr()
+                    'lr': lr_scheduler.get_last_lr(),
+                    'warmup_scheduler': warmup_scheduler.state_dict() if cfg.training.lr_linear_decay else None,
                 }, os.path.join(cfg.ckpt_dir,'model.pth'))
 
             step += 1
 
-            if cfg.training.lr_warmup is True and epoch==0 and it < warmup_iters:
+            if cfg.training.lr_linear_decay:
+                warmup_scheduler.step()
+            elif cfg.training.lr_warmup is True and epoch==0 and it < warmup_iters:
                 warmup_scheduler.step(it)
 
-        lr_scheduler.step()
+        if not cfg.training.lr_linear_decay:
+            lr_scheduler.step()
 
 @hydra.main(config_path=f'../../configs',config_name=f"exp/gpv_biatt_box_text_coco_feats")
 def main(cfg):

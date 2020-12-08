@@ -42,6 +42,7 @@ model:
   vocab_embed: /home/tanmayg/Data/gpv/learning_phase_data/vocab/vocab_embed.npy
   max_text_len: 5 #20
   answer_head: null
+  freeze_bert: True
   detr:
     num_queries: 100
     num_classes: 1
