@@ -113,7 +113,6 @@ class GPV(nn.Module):
         
         query_encodings = self.bert_joiner(query_encodings.detach())
 
-        #import ipdb; ipdb.set_trace()
         lv_hs = query_encodings
         vl_hs = outputs['detr_hs'][-1]
         for layer in self.co_att_transformer:
@@ -127,7 +126,7 @@ class GPV(nn.Module):
         _,Tv,_ = vl_hs.size()
         lv_hs = lv_hs.view(1,B,Tl,D)
         vl_hs = vl_hs.view(1,B,Tv,D)
-        #import ipdb; ipdb.set_trace()
+        
         # vl encoding and relevance prediction
         #vl_hs = self.encode_v_with_l_context(outputs,query_encodings) # LxBxRxD
         relevance_logits = self.relevance_predictor(vl_hs)
@@ -139,8 +138,8 @@ class GPV(nn.Module):
                     aux_outputs['pred_relevance_logits'] + relevance_logits[i]
         
         # condition vl encoding on relevance prediction
-        # vl_hs = self.condition_on_relevance(
-        #     outputs['pred_relevance_logits'],vl_hs)
+        vl_hs = self.condition_on_relevance(
+            outputs['pred_relevance_logits'],vl_hs)
 
         # lv encoding
         #lv_hs = self.encode_l_with_v_context(outputs,query_encodings)

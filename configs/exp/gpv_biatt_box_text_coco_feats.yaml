@@ -1,4 +1,4 @@
-exp_name: gpv_biatt_feats_vqa_only_multiple_answers_100_boxes_lr_linear_decay_answer_head_tied_bs_120_warmup_partial_credit_inf_mask_3072_interm
+exp_name: gpv_biatt_feats_vqa_only_multiple_answers_100_boxes_lr_mils_10_15_drop_0.5_answer_head_tied_bs_120_warmup_partial_credit_inf_mask_3072_interm_relevance
 output_dir: /home/tanmayg/Data/gpv/coco_exp
 exp_dir: ${output_dir}/${exp_name}
 tb_dir: ${exp_dir}/tb_logs
