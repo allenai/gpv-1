@@ -30,3 +30,4 @@ pip install lmdb
 pip install git+https://github.com/ildoonet/pytorch-gradual-warmup-lr.git
 pip install boto3
 pip install tensorboardX
+pip install pytorch_transformers==1.0.0

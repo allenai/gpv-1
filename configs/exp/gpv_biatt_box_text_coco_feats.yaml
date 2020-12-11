@@ -1,4 +1,4 @@
-exp_name: gpv_biatt_feats_vqa_only_multiple_answers_100_boxes_lr_mils_10_15_drop_0.5_answer_head_tied_bs_120_warmup_partial_credit_inf_mask_3072_interm_relevance
+exp_name: gpv_biatt_feats_cap_only_multiple_answers_100_boxes_lr_mils_10_15_drop_0.5_answer_head_tied_bs_120_warmup_partial_credit_inf_mask_3072_interm_relevance_keep_best
 output_dir: /home/tanmayg/Data/gpv/coco_exp
 exp_dir: ${output_dir}/${exp_name}
 tb_dir: ${exp_dir}/tb_logs
@@ -23,24 +23,24 @@ defaults:
   - task: coco_learning_tasks
 
 learning_datasets:
-  # CocoCaptioning:
-  #   task_config: coco_captioning
-  #   name: coco_cap
+  CocoCaptioning:
+    task_config: coco_captioning
+    name: coco_cap
   # CocoDetection:
   #   task_config: coco_detection
   #   name: coco_det
   # CocoClassification:
   #   task_config: coco_classification
   #   name: coco_cls
-  CocoVqa:
-    task_config: coco_vqa
-    name: coco_vqa
+  # CocoVqa:
+  #   task_config: coco_vqa
+  #   name: coco_vqa
 
 model:
   pretr_detr: /home/tanmayg/Data/gpv/coco_exp/detr-r50-e632da11.pth
   vocab: /home/tanmayg/Data/gpv/learning_phase_data/vocab/vocab.json
   vocab_embed: /home/tanmayg/Data/gpv/learning_phase_data/vocab/vocab_embed.npy
-  max_text_len: 5 #20
+  max_text_len: 20
   answer_head: null
   answering_type: generation
   detr:
@@ -71,6 +71,7 @@ model:
     hidden_dim: ${model.detr.hidden_dim}
     dropout: ${model.detr.dropout}
     nheads: ${model.detr.nheads}
+    pos_enc: False
     num_layers: 3
   co_att:
     visualization: False
@@ -137,10 +138,14 @@ training:
   lr_warmup_fraction: 0.1
   clip_max_norm: 0 #0.1
   num_vis_samples: 15
-  num_val_samples: 20000
+  num_val_samples: 
+    coco_vqa: 20000
+    coco_cap: 3000
+
+  
 
 eval:
-  task: CocoVqa
+  task: CocoCaptioning
   ckpt: ${exp_dir}/ckpts/model.pth
   batch_size: 20
   num_workers: 20

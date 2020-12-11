@@ -30,10 +30,8 @@ class AnswerHead(nn.Module):
         """
         L,B,T,D = answer_embed.size()
         vocab_classifiers = self.classifier_transform(self.vocab_embed) # VxD
-        vocab_classifiers = vocab_classifiers.permute(1,0).view(1,1,1,D,-1) # 1x1x1xDxV
-        answer_embed = answer_embed.view(*answer_embed.size(),1) # LxBxTxDx1
-        return torch.sum(vocab_classifiers*answer_embed,3) # LxBxTxV
-
+        vocab_classifiers = vocab_classifiers.permute(1,0) # DxV
+        return torch.matmul(answer_embed,vocab_classifiers) # LxBxTxV
 
 
 class LinearAnswerHead(nn.Module):

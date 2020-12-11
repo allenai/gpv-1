@@ -20,16 +20,7 @@ class GenericCocoDataset(Dataset):
         self.cfg = cfg
         self.subset = subset
         self.samples = io.load_json_object(self.cfg.samples[self.subset])
-        # self.feats_env = lmdb.open(
-        #     self.cfg.feats,
-        #     max_readers=100,
-        #     readonly=True,
-        #     lock=False,
-        #     readahead=False,
-        #     meminit=False,
-        # )
-        # with self.feats_env.begin(write=False) as txn:
-        #     self._image_ids = pickle.loads(txn.get("keys".encode()))
+        self.feats_env = None
 
         self.imh = self.cfg.image_size.H
         self.imw = self.cfg.image_size.W
@@ -96,15 +87,16 @@ class GenericCocoDataset(Dataset):
         return bbox
 
     def read_features(self,image_id):
-        feats_env = lmdb.open(
-            self.cfg.feats,
-            max_readers=1,
-            readonly=True,
-            lock=False,
-            readahead=False,
-            meminit=False,
-        )
-        with feats_env.begin(write=False) as txn:
+        if self.feats_env is None:
+            self.feats_env = lmdb.open(
+                self.cfg.feats,
+                #max_readers=1,
+                readonly=True,
+                lock=False,
+                readahead=False,
+                meminit=False)
+                
+        with self.feats_env.begin(write=False) as txn:
             item = pickle.loads(txn.get(str(image_id).encode()))
             features = item["features"].reshape(-1, 2048)
         

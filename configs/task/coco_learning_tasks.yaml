@@ -18,6 +18,7 @@ coco_captioning:
     train: null
     val: null
     test: null
+  feats: ${task_configs.coco_feats}
 
 coco_detection:
   image_dir: ${task_configs.image_dir}

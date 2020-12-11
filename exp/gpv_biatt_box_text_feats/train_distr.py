@@ -19,6 +19,7 @@ from pytorch_transformers.optimization import WarmupLinearSchedule
 
 from .models.gpv import GPV
 from .models.losses import GPVCriterion
+from exp.gpv_box_text import evaluators
 from datasets.coco_multitask_feats_dataset import CocoMultitaskDataset
 from utils.bbox_utils import vis_bbox
 import utils.io as io
@@ -165,7 +166,7 @@ def vqa_accuracy(model,dataloader,cfg):
         pred_answers = model.token_ids_to_words(topk_answer_ids[:,:,0])
         B = len(pred_answers)
         for b in range(B):
-            if total >= cfg.training.num_val_samples:
+            if total >= cfg.training.num_val_samples['coco_vqa']:
                 end_eval = True
                 break
             
@@ -185,12 +186,66 @@ def vqa_accuracy(model,dataloader,cfg):
     return acc
 
 
+def cap_metrics(model,dataloader,cfg):
+    samples = dataloader.dataset.samples
+    device = f'cuda:{cfg.gpu}'
+    word_to_idx = model.word_to_idx
+    idx_to_word = [None]*len(word_to_idx)
+    for word,idx in word_to_idx.items():
+        idx_to_word[idx] = word
+
+    model.eval()
+    
+    detokenizer = TreebankWordDetokenizer()
+    predictions = {}
+    total = 0
+    end_eval = False
+    for data in tqdm(dataloader):
+        imgs, feats, queries, targets = data
+        imgs = imgs.to(torch.device(device))
+        feats = feats.cuda(device)
+        for t in targets:
+            for k,v in t.items():
+                if k!='answer':
+                    t[k] = v.cuda(device)
+        
+        answer_tokens,answer_token_ids = model.encode_answers(targets)
+        for i,t in enumerate(targets):
+            t['answer_token_ids'] = answer_token_ids[i,1:]
+
+        outputs = model(feats,queries,answer_token_ids=None)
+
+        topk_answers = torch.topk(outputs['answer_logits'][-1],k=1,dim=-1)
+        topk_answer_ids = topk_answers.indices.detach().cpu().numpy()
+        pred_answers = model.token_ids_to_words(topk_answer_ids[:,:,0])
+        B = len(pred_answers)
+        for b in range(B):
+            if total >= cfg.training.num_val_samples['coco_cap']:
+                end_eval = True
+                break
+            
+            pred_answer = detokenizer.detokenize([w for w in pred_answers[b] if 
+                w not in ['__stop__','__pad__']])
+            cap_id = samples[total]['cap_id']
+            predictions[str(cap_id)] = {'answer': pred_answer}
+                
+            total += 1
+        
+        if end_eval:
+            break
+
+    cap_evaluator = evaluators.CocoCaptioning(samples,predictions,None)
+    cap_evaluator.scorers = {
+        k:v for k,v in cap_evaluator.scorers.items() if k in ['Bleu','Cider']}
+    metrics = cap_evaluator.evaluate()
+    return metrics['scores']
+
+
 def freeze_detr_params(model):
     print(f'Setting requires grad to False for DETR params')
     for n,p in model.named_parameters():
         if n in model.init_detr_params:
             p.requires_grad = False
-            #print(f'    {n}')
 
 
 def feat_collate_fn(batch):
@@ -325,22 +380,47 @@ def train_worker(gpu,cfg):
         optimizer.zero_grad()
         optimizer.step()
 
+    best_metric = 0
+    best_epoch = -1
     for epoch in range(last_epoch+1,cfg.training.num_epochs):
-        if gpu==0 and epoch>0:
+        if gpu==0: # and epoch>0:
             for eval_subset in ['train','val']:
-                print(f'Evaluating {eval_subset}')
-                vqa_dataset = dataloaders[eval_subset].dataset.datasets['coco_vqa']
-                vqa_dataloader = DataLoader(
-                    vqa_dataset,
+                ## uncomment to eval on vqa
+                # print(f'Evaluating {eval_subset}')
+                # vqa_dataset = dataloaders[eval_subset].dataset.datasets['coco_vqa']
+                # vqa_dataloader = DataLoader(
+                #     vqa_dataset,
+                #     batch_size=cfg.batch_size,
+                #     num_workers=cfg.workers,
+                #     shuffle=False,
+                #     collate_fn=feat_collate_fn)
+                # with torch.no_grad():
+                #     acc = vqa_accuracy(model,vqa_dataloader,cfg)
+
+                # print(f'Subset: {eval_subset} | Epoch: {epoch} | Acc: {acc}')
+                # writer.add_scalar(f'vqa_acc/{eval_subset}',acc,step)
+
+                # eval on cap
+                cap_dataset = dataloaders[eval_subset].dataset.datasets['coco_cap']
+                cap_dataloader = DataLoader(
+                    cap_dataset,
                     batch_size=cfg.batch_size,
                     num_workers=cfg.workers,
                     shuffle=False,
                     collate_fn=feat_collate_fn)
                 with torch.no_grad():
-                    acc = vqa_accuracy(model,vqa_dataloader,cfg)
+                    metrics = cap_metrics(model,cap_dataloader,cfg)
+                    cider = metrics['Cider']
+                    bleu1 =  metrics['Bleu1']
+                    bleu4 =  metrics['Bleu4']
 
-                print(f'Subset: {eval_subset} | Epoch: {epoch} | Acc: {acc}')
-                writer.add_scalar(f'vqa_acc/{eval_subset}',acc,step)
+                print(f'Subset: {eval_subset} | Epoch: {epoch} | Bleu1: {bleu1} | Bleu4: {bleu4} | Cider: {cider}')
+                writer.add_scalar(f'cap_metrics/{eval_subset}/cider',cider,step)
+                writer.add_scalar(f'cap_metrics/{eval_subset}/bleu1',bleu1,step)
+                writer.add_scalar(f'cap_metrics/{eval_subset}/bleu4',bleu4,step)
+
+                if eval_subset=='val':
+                    model_selection_metric = cider
 
         if cfg.multiprocessing_distributed:
             sampler['train'].set_epoch(epoch)
@@ -386,15 +466,13 @@ def train_worker(gpu,cfg):
                 writer.add_scalar('Epoch',epoch,step)
                 writer.add_scalar('Iter',it,step)
                 writer.add_scalar('Step',step,step)
-                # writer.add_scalar(
-                #     'Lr/all_except_backbone',
-                #     lr_scheduler.get_last_lr()[0],
-                #     step)
+                writer.add_scalar('Best Epoch',best_epoch,step)
                 for j,group_lr in enumerate(get_lrs(optimizer)):
                     writer.add_scalar(
                         f'Lr/optimizer/group_{j}',
                         group_lr,
                         step)
+                
                 for loss_name,loss_value in losses.items():
                     if loss_value is None:
                         continue
@@ -415,15 +493,18 @@ def train_worker(gpu,cfg):
                     
             if gpu==0 and step%cfg.training.ckpt_step==0:
                 print('Saving checkpoint ...')
-                torch.save({
-                    'model': model.state_dict(),
-                    'optimizer': optimizer.state_dict(),
-                    'epoch': epoch,
-                    'iter': it,
-                    'step': step,
-                    'lr': lr_scheduler.get_last_lr(),
-                    'warmup_scheduler': warmup_scheduler.state_dict() if cfg.training.lr_linear_decay else None,
-                }, os.path.join(cfg.ckpt_dir,'model.pth'))
+                if model_selection_metric > best_metric:
+                    best_metric = model_selection_metric
+                    best_epoch = epoch
+                    torch.save({
+                        'model': model.state_dict(),
+                        'optimizer': optimizer.state_dict(),
+                        'epoch': epoch,
+                        'iter': it,
+                        'step': step,
+                        'lr': lr_scheduler.get_last_lr(),
+                        'warmup_scheduler': warmup_scheduler.state_dict() if cfg.training.lr_linear_decay else None,
+                    }, os.path.join(cfg.ckpt_dir,'model.pth'))
 
             step += 1
 

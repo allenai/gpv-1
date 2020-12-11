@@ -1,4 +1,5 @@
 import copy
+import math
 import nltk
 from nltk.tokenize import word_tokenize
 import torch
@@ -11,6 +12,25 @@ from .answer_head import build_answer_head
 from .vilbert import BertConnectionLayer
 from .losses import GPVCriterion
 import utils.io as io
+
+
+def positionalencoding1d(d_model, length):
+    """
+    :param d_model: dimension of the model
+    :param length: length of positions
+    :return: length*d_model position matrix
+    """
+    if d_model % 2 != 0:
+        raise ValueError("Cannot use sin/cos positional encoding with "
+                         "odd dim (got dim={:d})".format(d_model))
+    pe = torch.zeros(length, d_model)
+    position = torch.arange(0, length).unsqueeze(1)
+    div_term = torch.exp((torch.arange(0, d_model, 2, dtype=torch.float) *
+                         -(math.log(10000.0) / d_model)))
+    pe[:, 0::2] = torch.sin(position.float() * div_term)
+    pe[:, 1::2] = torch.cos(position.float() * div_term)
+
+    return pe
 
 
 def build_transformer_decoder(cfg):
@@ -86,6 +106,11 @@ class GPV(nn.Module):
             0.1*torch.randn([2,cfg.detr.hidden_dim]),requires_grad=True)
 
         self.criterion = GPVCriterion(self.cfg.losses)
+
+        self.pos_enc = nn.Parameter(positionalencoding1d(
+            cfg.text_decoder.hidden_dim,
+            cfg.max_text_len).view(1,self.cfg.max_text_len,-1)) # 1xSxD
+        self.pos_enc.requires_grad = False
 
     
     def load_pretr_detr(self):
@@ -299,6 +324,8 @@ class GPV(nn.Module):
     def decode_text(self,target,memory):
         L,B,Tm,D = memory.size()
         _,_,Tt,D = target.size()
+        if self.cfg.text_decoder.pos_enc is True:
+            target = target + self.pos_enc[:,:Tt]
         memory = memory.view(L*B,Tm,D).permute(1,0,2)
         target = target.view(L*B,Tt,D).permute(1,0,2)
         tgt_mask = torch.zeros((Tt,Tt))
