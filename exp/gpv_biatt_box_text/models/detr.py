@@ -18,7 +18,7 @@ from utils.matcher import build_matcher
 
 class DETR(nn.Module):
     """ This is the DETR module that performs object detection """
-    def __init__(self, num_classes, num_queries, feat_dim, hidden_dim, aux_loss=False):
+    def __init__(self, backbone, transformer, num_classes, num_queries, last_layer_only, aux_loss=False):
         """ Initializes the model.
         Parameters:
             backbone: torch module of the backbone to be used. See backbone.py
@@ -30,13 +30,17 @@ class DETR(nn.Module):
         """
         super().__init__()
         self.num_queries = num_queries
-        self.hidden_dim = hidden_dim
+        self.transformer = transformer
+        hidden_dim = transformer.d_model
         self.class_embed = nn.Linear(hidden_dim, num_classes + 1)
         self.bbox_embed = MLP(hidden_dim, hidden_dim, 4, 3)
-        self.input_proj = nn.Linear(feat_dim, hidden_dim)
+        self.query_embed = nn.Embedding(num_queries, hidden_dim)
+        self.input_proj = nn.Conv2d(backbone.num_channels, hidden_dim, kernel_size=1)
+        self.backbone = backbone
+        self.last_layer_only = last_layer_only
         self.aux_loss = aux_loss
 
-    def forward(self, feats):
+    def forward(self, samples: NestedTensor):
         """ The forward expects a NestedTensor, which consists of:
                - samples.tensor: batched images, of shape [batch_size x 3 x H x W]
                - samples.mask: a binary mask of shape [batch_size x H x W], containing 1 on padded pixels
@@ -50,9 +54,17 @@ class DETR(nn.Module):
                - "aux_outputs": Optional, only returned when auxilary losses are activated. It is a list of
                                 dictionnaries containing the two above keys for each decoder layer.
         """
-        hs = self.input_proj(feats)
-        B,Q,D = hs.size()
-        hs = hs.view(1,B,Q,D)
+        if isinstance(samples, (list, torch.Tensor)):
+            samples = nested_tensor_from_tensor_list(samples)
+            
+        features, pos = self.backbone(samples)
+
+        src, mask = features[-1].decompose()
+        assert mask is not None
+        hs = self.transformer(self.input_proj(src), mask, self.query_embed.weight, pos[-1])[0]
+        L,B,Q,D = hs.size()
+        if (self.last_layer_only is True) or (self.training is not True):
+            hs = hs[-1].view(1,B,Q,D)
         outputs_class = self.class_embed(hs)
         outputs_coord = self.bbox_embed(hs).sigmoid()
         out = {'pred_relevance_logits': outputs_class[-1], 'pred_boxes': outputs_coord[-1], 'detr_hs': hs}
@@ -85,11 +97,16 @@ class MLP(nn.Module):
 
 
 def create_detr(cfg):
+    backbone = build_backbone(cfg)
+
+    transformer = build_transformer(cfg)
+
     model = DETR(
+        backbone,
+        transformer,
         num_classes=cfg.num_classes,
         num_queries=cfg.num_queries,
-        feat_dim=cfg.feat_dim,
-        hidden_dim=cfg.hidden_dim,
+        last_layer_only=cfg.last_layer_only,
         aux_loss=cfg.aux_loss)
     
     return model
