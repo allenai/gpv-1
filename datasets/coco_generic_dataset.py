@@ -91,7 +91,7 @@ class GenericCocoDataset(Dataset):
             img, original_image_size = self.read_image(
                 image_subset,image_id)
             img = (255*img).astype(np.uint8)
-            img = self.transforms(img)
+            #img = self.transforms(img)
         
         query = sample['query']
 
