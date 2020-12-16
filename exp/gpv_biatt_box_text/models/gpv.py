@@ -61,6 +61,9 @@ class GPV(nn.Module):
 
         # visual stream
         self.detr = create_detr(cfg.detr)
+        self.detr_joiner = nn.Linear(
+            cfg.detr_joiner.detr_dim,
+            cfg.detr_joiner.out_dim)
         self.init_detr_params = []
 
         # text stream
@@ -70,15 +73,13 @@ class GPV(nn.Module):
             cfg.bert_joiner.out_dim)
         
         # encode vision with language context and vice versa
-        #self.vl_transformer = build_transformer_decoder(cfg.vl_transformer)
-        #self.lv_transformer = build_transformer_decoder(cfg.lv_transformer)
         layer = BertConnectionLayer(cfg.co_att)
         self.co_att_transformer = nn.ModuleList(
             [copy.deepcopy(layer) for _ in range(cfg.co_att.num_layers)])
             
         # relevance predictor that operates on vl output
         self.relevance_predictor = nn.Linear(
-            cfg.detr.hidden_dim,
+            cfg.hidden_dim,
             cfg.detr.num_classes + 1)
 
         # text decoder
@@ -99,11 +100,11 @@ class GPV(nn.Module):
     
         # indicator tokens
         self.vision_token = nn.Parameter(
-            0.1*torch.randn([cfg.detr.hidden_dim]),requires_grad=True)
+            0.1*torch.randn([cfg.hidden_dim]),requires_grad=True)
         self.lang_token = nn.Parameter(
-            0.1*torch.randn([cfg.detr.hidden_dim]),requires_grad=True)
+            0.1*torch.randn([cfg.hidden_dim]),requires_grad=True)
         self.relevance_tokens = nn.Parameter(
-            0.1*torch.randn([2,cfg.detr.hidden_dim]),requires_grad=True)
+            0.1*torch.randn([2,cfg.hidden_dim]),requires_grad=True)
 
         self.criterion = GPVCriterion(self.cfg.losses)
 
@@ -116,7 +117,6 @@ class GPV(nn.Module):
     def load_pretr_detr(self):
         loaded_model = torch.load(self.cfg.pretr_detr)['model'] # eg. key backbone.0.body.layer2.1.conv1.weight
         curr_model = self.state_dict()
-        #init_detr_params = []
         for lk in loaded_model.keys():
             detr_lk ='detr.'+lk
             if detr_lk in curr_model:
@@ -129,9 +129,10 @@ class GPV(nn.Module):
         
         self.load_state_dict(curr_model)
 
-    def forward(self,feats,queries,answer_token_ids,targets=None,vocab_mask=None):
+    def forward(self,images,queries,answer_token_ids,targets=None,vocab_mask=None):
         device = self.vision_token.device
-        outputs = self.detr(feats)
+        outputs = self.detr(images)
+        outputs['detr_hs'] = self.detr_joiner(outputs['detr_hs'])
 
         with torch.no_grad():
             query_encodings, token_inputs = self.bert(queries,device)
@@ -152,8 +153,7 @@ class GPV(nn.Module):
         lv_hs = lv_hs.view(1,B,Tl,D)
         vl_hs = vl_hs.view(1,B,Tv,D)
         
-        # vl encoding and relevance prediction
-        #vl_hs = self.encode_v_with_l_context(outputs,query_encodings) # LxBxRxD
+        # relevance prediction
         relevance_logits = self.relevance_predictor(vl_hs)
         outputs['pred_relevance_logits'] = \
             outputs['pred_relevance_logits'] + relevance_logits[-1] #BxRx2
@@ -165,9 +165,6 @@ class GPV(nn.Module):
         # condition vl encoding on relevance prediction
         vl_hs = self.condition_on_relevance(
             outputs['pred_relevance_logits'],vl_hs)
-
-        # lv encoding
-        #lv_hs = self.encode_l_with_v_context(outputs,query_encodings)
 
         # concat vl and lv to create a memory for text decoding
         memory = torch.cat((vl_hs,lv_hs),2)
@@ -285,41 +282,6 @@ class GPV(nn.Module):
         device = self.vision_token.device
         return self.answer_input_embedings(
             torch.LongTensor([self.word_to_idx['__cls__']]).cuda(device))[0]
-
-    def encode_l_with_v_context(self,outputs,query_encodings):
-        detr_hs = outputs['detr_hs']
-        # detr_hs = self.condition_on_relevance(
-        #     outputs['pred_relevance_logits'],detr_hs)
-        L = detr_hs.size(0)
-        B,T,D = query_encodings.size()
-        query_encodings = query_encodings.view(1,B,T,D).repeat(L,1,1,1)
-        vision_token = self.vision_token.view(1,1,1,D)
-        lang_token = self.lang_token.view(1,1,1,D)
-        cls_token = self.cls_token.view(1,1,1,D).repeat(L,B,1,1)
-        fused_hs = torch.cat(
-            (detr_hs+vision_token,query_encodings+lang_token),2)
-        fused_hs = fused_hs.view(L*B,-1,D).permute(1,0,2)
-        fused_hs = self.lv_transformer(
-            fused_hs[self.cfg.detr.num_queries:],
-            fused_hs[:self.cfg.detr.num_queries])
-        fused_hs = fused_hs.permute(1,0,2).view(L,B,-1,D)
-        return fused_hs
-
-    def encode_v_with_l_context(self,outputs,query_encodings):
-        detr_hs = outputs['detr_hs']
-        L = detr_hs.size(0)
-        B,T,D = query_encodings.size()
-        query_encodings = query_encodings.view(1,B,T,D).repeat(L,1,1,1)
-        vision_token = self.vision_token.view(1,1,1,D)
-        lang_token = self.lang_token.view(1,1,1,D)
-        fused_hs = torch.cat(
-            (detr_hs+vision_token,query_encodings+lang_token),2)
-        fused_hs = fused_hs.view(L*B,-1,D).permute(1,0,2)
-        fused_hs = self.vl_transformer(
-            fused_hs[:self.cfg.detr.num_queries],
-            fused_hs[self.cfg.detr.num_queries:])
-        fused_hs = fused_hs.permute(1,0,2).view(L,B,-1,D)
-        return fused_hs
 
     def decode_text(self,target,memory):
         L,B,Tm,D = memory.size()
