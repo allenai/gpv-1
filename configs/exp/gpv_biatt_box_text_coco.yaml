@@ -1,4 +1,4 @@
-exp_name: gpv_biatt_feats_cap_only_multiple_answers_100_boxes_lr_mils_10_15_drop_0.5_answer_head_tied_bs_120_warmup_partial_credit_inf_mask_3072_interm_relevance_keep_best
+exp_name: gpv_biatt_vqa_freeze_then_ft
 output_dir: /home/tanmayg/Data/gpv/coco_exp
 exp_dir: ${output_dir}/${exp_name}
 tb_dir: ${exp_dir}/tb_logs
@@ -23,24 +23,24 @@ defaults:
   - task: coco_learning_tasks
 
 learning_datasets:
-  CocoCaptioning:
-    task_config: coco_captioning
-    name: coco_cap
+  # CocoCaptioning:
+  #   task_config: coco_captioning
+  #   name: coco_cap
   # CocoDetection:
   #   task_config: coco_detection
   #   name: coco_det
   # CocoClassification:
   #   task_config: coco_classification
   #   name: coco_cls
-  # CocoVqa:
-  #   task_config: coco_vqa
-  #   name: coco_vqa
+  CocoVqa:
+    task_config: coco_vqa
+    name: coco_vqa
 
 model:
-  pretr_detr: /home/tanmayg/Data/gpv/coco_exp/detr-r50-e632da11.pth
+  pretr_detr: /home/tanmayg/Data/gpv/detr/detr_gpv_checkpoint0299.pth #/home/tanmayg/Data/gpv/coco_exp/detr-r50-e632da11.pth
   vocab: /home/tanmayg/Data/gpv/learning_phase_data/vocab/vocab.json
   vocab_embed: /home/tanmayg/Data/gpv/learning_phase_data/vocab/vocab_embed.npy
-  max_text_len: 20
+  max_text_len: 5 #20
   answer_head: null
   answering_type: generation
   hidden_dim: 768
@@ -62,6 +62,9 @@ model:
     aux_loss: False
     frozenbatchnorm: True
     last_layer_only: True
+  detr_joiner:
+    detr_dim: 256
+    out_dim: ${model.hidden_dim}
   bert_joiner:
     bert_dim: 768
     out_dim: ${model.hidden_dim}
@@ -72,7 +75,6 @@ model:
     pos_enc: False
     num_layers: 3
   co_att:
-    hidden_dim: 768
     visualization: False
     bi_num_attention_heads: 16
     bi_hidden_size: ${model.hidden_dim}
@@ -112,12 +114,12 @@ losses:
     num_classes: ${model.detr.num_classes}
 
 training:
-  ckpt: null #${ckpt_dir}/model_bkp.pth #/home/tanmayg/Data/gpv/coco_exp/gpv/ckpts/frozen_model.pth
+  ckpt: ${ckpt_dir}/model.pth
   freeze: False # freeze Detr layers
   frozen_epochs: 5
-  frozen_batch_size: 64
+  frozen_batch_size: 120
   num_epochs: 40 # will be set to frozen_epochs if freeze is True
-  batch_size: 120 #40 # will be set to frozen_batch_size if freeze is True
+  batch_size: 120 #30 # will be set to frozen_batch_size if freeze is True
   num_workers: 30 #60 # 30
   vis_step: 2000
   log_step: 10
@@ -139,12 +141,12 @@ training:
   num_vis_samples: 15
   num_val_samples: 
     coco_vqa: 20000
-    coco_cap: 3000
+    coco_cap: 10000
 
   
 
 eval:
-  task: CocoCaptioning
+  task: CocoVqa
   ckpt: ${exp_dir}/ckpts/model.pth
   batch_size: 20
   num_workers: 20

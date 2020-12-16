@@ -20,7 +20,7 @@ from pytorch_transformers.optimization import WarmupLinearSchedule
 from .models.gpv import GPV
 from .models.losses import GPVCriterion
 from exp.gpv_box_text import evaluators
-from datasets.coco_multitask_feats_dataset import CocoMultitaskDataset
+from datasets.coco_multitask_dataset import CocoMultitaskDataset
 from utils.bbox_utils import vis_bbox
 import utils.io as io
 from utils.html_writer import HtmlWriter
@@ -57,9 +57,8 @@ def visualize(model,dataloader,cfg,step,subset):
     count = 0
     finish_vis = False
     for data in dataloader:
-        imgs, feats, queries, targets = data
+        imgs, queries, targets = data
         imgs = imgs.to(torch.device(device))
-        feats = feats.cuda(device)
         for t in targets:
             for k,v in t.items():
                 if k!='answer':
@@ -69,7 +68,7 @@ def visualize(model,dataloader,cfg,step,subset):
         for i,t in enumerate(targets):
             t['answer_token_ids'] = answer_token_ids[i,1:]
 
-        outputs = model(feats,queries,answer_token_ids=None)
+        outputs = model(imgs,queries,answer_token_ids=None)
         dataset_name = list(dataloader.dataset.datasets.keys())[0]
         imgs = dataloader.dataset.datasets[dataset_name].get_images_from_tensor(imgs)
         imgs = imgs.detach().cpu().numpy().astype(np.uint8)
@@ -147,9 +146,8 @@ def vqa_accuracy(model,dataloader,cfg):
     total = 0
     end_eval = False
     for data in tqdm(dataloader):
-        imgs, feats, queries, targets = data
+        imgs, queries, targets = data
         imgs = imgs.to(torch.device(device))
-        feats = feats.cuda(device)
         for t in targets:
             for k,v in t.items():
                 if k!='answer':
@@ -159,7 +157,7 @@ def vqa_accuracy(model,dataloader,cfg):
         for i,t in enumerate(targets):
             t['answer_token_ids'] = answer_token_ids[i,1:]
 
-        outputs = model(feats,queries,answer_token_ids=None)
+        outputs = model(imgs,queries,answer_token_ids=None)
 
         topk_answers = torch.topk(outputs['answer_logits'][-1],k=1,dim=-1)
         topk_answer_ids = topk_answers.indices.detach().cpu().numpy()
@@ -201,9 +199,8 @@ def cap_metrics(model,dataloader,cfg):
     total = 0
     end_eval = False
     for data in tqdm(dataloader):
-        imgs, feats, queries, targets = data
+        imgs, queries, targets = data
         imgs = imgs.to(torch.device(device))
-        feats = feats.cuda(device)
         for t in targets:
             for k,v in t.items():
                 if k!='answer':
@@ -213,7 +210,7 @@ def cap_metrics(model,dataloader,cfg):
         for i,t in enumerate(targets):
             t['answer_token_ids'] = answer_token_ids[i,1:]
 
-        outputs = model(feats,queries,answer_token_ids=None)
+        outputs = model(imgs,queries,answer_token_ids=None)
 
         topk_answers = torch.topk(outputs['answer_logits'][-1],k=1,dim=-1)
         topk_answer_ids = topk_answers.indices.detach().cpu().numpy()
@@ -241,16 +238,12 @@ def cap_metrics(model,dataloader,cfg):
     return metrics['scores']
 
 
-def freeze_detr_params(model):
+def freeze_detr_params(model,requires_grad=False):
     print(f'Setting requires grad to False for DETR params')
     for n,p in model.named_parameters():
         if n in model.init_detr_params:
-            p.requires_grad = False
+            p.requires_grad = requires_grad
 
-
-def feat_collate_fn(batch):
-    batch = detr_collate_fn(batch)
-    return (batch[0],default_collate(batch[1]),*batch[2:])
 
 def get_lrs(optimizer):
     lrs = []
@@ -268,9 +261,9 @@ def train_worker(gpu,cfg):
         print(cfg.pretty())
 
     model = GPV(cfg.model)
-    #model.load_pretr_detr()
-    # if cfg.training.freeze is True:
-    #     freeze_detr_params(model)
+    model.load_pretr_detr()
+    if cfg.training.freeze is True:
+        freeze_detr_params(model)
 
     datasets = {
         'train': CocoMultitaskDataset(cfg.learning_datasets,cfg.task_configs,'train'),
@@ -290,7 +283,7 @@ def train_worker(gpu,cfg):
         # Setup distributed model
         torch.cuda.set_device(cfg.gpu)
         model.cuda(cfg.gpu)
-        #init_detr_params = model.init_detr_params
+        init_detr_params = model.init_detr_params
         word_to_idx = model.word_to_idx
         encode_answers = model.encode_answers
         token_ids_to_words = model.token_ids_to_words
@@ -299,7 +292,7 @@ def train_worker(gpu,cfg):
         model.encode_answers = encode_answers
         model.word_to_idx = word_to_idx
         model.token_ids_to_words = token_ids_to_words
-        #model.init_detr_params = init_detr_params
+        model.init_detr_params = init_detr_params
 
         # Create sampler for dataloader
         sampler = {'val': None}
@@ -314,7 +307,7 @@ def train_worker(gpu,cfg):
         dataloaders[subset] = torch.utils.data.DataLoader(
             dataset,
             batch_size=cfg.batch_size,
-            collate_fn=feat_collate_fn,
+            collate_fn=detr_collate_fn,
             num_workers=cfg.workers,
             pin_memory=True,
             shuffle=(sampler[subset] is None and subset is 'train'),
@@ -324,12 +317,30 @@ def train_worker(gpu,cfg):
     if gpu==0:
         writer = SummaryWriter(log_dir=cfg.tb_dir)
 
-    other_params = [p for n, p in model.named_parameters() \
-            if ('bert.' not in n) and p.requires_grad]
-    param_dicts = [
-        {'params': other_params}]
-    optimizer = torch.optim.AdamW(
-        param_dicts, 
+    params = {
+        'detr_backbone': [],
+        'detr_head': [],
+        'bert': [],
+        'others': []
+    }
+    for n,p in model.named_parameters():
+        if 'detr.backbone' in n:
+            params['detr_backbone'].append(p)
+        elif 'detr' in n:
+            params['detr_head'].append(p)
+        elif 'bert.' in n:
+            params['bert'].append(p)
+        else:
+            params['others'].append(p)
+
+    for k,v in params.items(): 
+        print(k,len(v))
+    
+    optimizer = torch.optim.AdamW([
+        {'params': params['detr_backbone'], 'lr': cfg.model.detr.lr_backbone},
+        {'params': params['detr_head']},
+        {'params': params['bert']},
+        {'params': params['others']}],
         lr=cfg.training.lr,
         weight_decay=cfg.training.weight_decay)
 
@@ -345,13 +356,14 @@ def train_worker(gpu,cfg):
             if k in state_dict and state_dict[k].size()==v.size():
                 v.requires_grad = state_dict[k].requires_grad
                 state_dict[k] = v
+                print(k)
 
         model.load_state_dict(state_dict)
         optimizer.load_state_dict(ckpt['optimizer'])
-        if cfg.training.lr_linear_decay:
-            warmup_scheduler.load_state_dict(ckpt['warmup_scheduler'])
+
         step = ckpt['step']
         last_epoch = ckpt['epoch']
+        print(f'Loading checkpoint at epoch: {last_epoch}')
 
     lr_scheduler = torch.optim.lr_scheduler.MultiStepLR(
         optimizer,
@@ -360,20 +372,26 @@ def train_worker(gpu,cfg):
         last_epoch=last_epoch)
     
     warmup_iters = len(dataloaders['train'])
-    if last_epoch==-1 and cfg.training.lr_warmup is True:
+    if cfg.training.lr_warmup is True:
         if cfg.training.lr_linear_decay:
             num_train_optimization_steps = len(dataloaders['train']) * cfg.training.num_epochs
-            warmpu_steps = cfg.training.lr_warmup_fraction * num_train_optimization_steps
+            warmup_steps = cfg.training.lr_warmup_fraction * num_train_optimization_steps
             warmup_scheduler = WarmupLinearSchedule(
-                    optimizer, warmup_steps=warmpu_steps, t_total=num_train_optimization_steps
-                    )
+                optimizer,
+                warmup_steps=warmup_steps,
+                t_total=num_train_optimization_steps,
+                last_epoch=step)
         else:
             warmup_scheduler = GradualWarmupScheduler(
                 optimizer,
                 multiplier=1,
-                total_epoch=warmup_iters) # updated every iter not epoch
+                total_epoch=warmup_iters,
+                last_epoch=step) # updated every iter not epoch
             if gpu==0:
                 print('Warmup iters:',warmup_iters)
+
+        if cfg.training.ckpt is not None:
+            warmup_scheduler.load_state_dict(ckpt['warmup_scheduler'])
 
     if cfg.training.lr_warmup and not cfg.training.lr_linear_decay:
         # zero grad step needed for warmup scheduler
@@ -382,54 +400,57 @@ def train_worker(gpu,cfg):
 
     best_metric = 0
     best_epoch = -1
-    for epoch in range(last_epoch+1,cfg.training.num_epochs):
+    training_epochs = cfg.training.num_epochs
+    if cfg.training.freeze is True:
+        training_epochs = cfg.training.frozen_epochs
+
+    for epoch in range(last_epoch+1,training_epochs):
         if gpu==0: # and epoch>0:
             for eval_subset in ['train','val']:
-                ## uncomment to eval on vqa
-                # print(f'Evaluating {eval_subset}')
-                # vqa_dataset = dataloaders[eval_subset].dataset.datasets['coco_vqa']
-                # vqa_dataloader = DataLoader(
-                #     vqa_dataset,
-                #     batch_size=cfg.batch_size,
-                #     num_workers=cfg.workers,
-                #     shuffle=False,
-                #     collate_fn=feat_collate_fn)
-                # with torch.no_grad():
-                #     acc = vqa_accuracy(model,vqa_dataloader,cfg)
-
-                # print(f'Subset: {eval_subset} | Epoch: {epoch} | Acc: {acc}')
-                # writer.add_scalar(f'vqa_acc/{eval_subset}',acc,step)
-
-                # eval on cap
-                cap_dataset = dataloaders[eval_subset].dataset.datasets['coco_cap']
-                cap_dataloader = DataLoader(
-                    cap_dataset,
+                # uncomment to eval on vqa
+                print(f'Evaluating {eval_subset}')
+                vqa_dataset = dataloaders[eval_subset].dataset.datasets['coco_vqa']
+                vqa_dataloader = DataLoader(
+                    vqa_dataset,
                     batch_size=cfg.batch_size,
                     num_workers=cfg.workers,
                     shuffle=False,
-                    collate_fn=feat_collate_fn)
+                    collate_fn=detr_collate_fn)
                 with torch.no_grad():
-                    metrics = cap_metrics(model,cap_dataloader,cfg)
-                    cider = metrics['Cider']
-                    bleu1 =  metrics['Bleu1']
-                    bleu4 =  metrics['Bleu4']
+                    vqa_acc = vqa_accuracy(model,vqa_dataloader,cfg)
 
-                print(f'Subset: {eval_subset} | Epoch: {epoch} | Bleu1: {bleu1} | Bleu4: {bleu4} | Cider: {cider}')
-                writer.add_scalar(f'cap_metrics/{eval_subset}/cider',cider,step)
-                writer.add_scalar(f'cap_metrics/{eval_subset}/bleu1',bleu1,step)
-                writer.add_scalar(f'cap_metrics/{eval_subset}/bleu4',bleu4,step)
+                print(f'Subset: {eval_subset} | Epoch: {epoch} | Acc: {vqa_acc}')
+                writer.add_scalar(f'vqa_acc/{eval_subset}',vqa_acc,step)
+
+                # # eval on cap
+                # cap_dataset = dataloaders[eval_subset].dataset.datasets['coco_cap']
+                # cap_dataloader = DataLoader(
+                #     cap_dataset,
+                #     batch_size=cfg.batch_size,
+                #     num_workers=cfg.workers,
+                #     shuffle=False,
+                #     collate_fn=detr_collate_fn)
+                # with torch.no_grad():
+                #     metrics = cap_metrics(model,cap_dataloader,cfg)
+                #     cider = metrics['Cider']
+                #     bleu1 =  metrics['Bleu1']
+                #     bleu4 =  metrics['Bleu4']
+
+                # print(f'Subset: {eval_subset} | Epoch: {epoch} | Bleu1: {bleu1} | Bleu4: {bleu4} | Cider: {cider}')
+                # writer.add_scalar(f'cap_metrics/{eval_subset}/cider',cider,step)
+                # writer.add_scalar(f'cap_metrics/{eval_subset}/bleu1',bleu1,step)
+                # writer.add_scalar(f'cap_metrics/{eval_subset}/bleu4',bleu4,step)
 
                 if eval_subset=='val':
-                    model_selection_metric = cider
+                    model_selection_metric = vqa_acc #cider
 
         if cfg.multiprocessing_distributed:
             sampler['train'].set_epoch(epoch)
 
         print(gpu,len(dataloaders['train']))
         for it,data in enumerate(dataloaders['train']):
-            imgs, feats, queries, targets = data
-            #imgs = imgs.to(torch.device(gpu))
-            feats = feats.cuda(gpu)
+            imgs, queries, targets = data
+            imgs = imgs.to(torch.device(gpu))
             for t in targets:
                 for k,v in t.items():
                     if k!='answer':
@@ -442,7 +463,7 @@ def train_worker(gpu,cfg):
             for i,t in enumerate(targets):
                 t['answer_token_ids'] = answer_token_ids[i,1:]
             
-            outputs = model(feats,queries,answer_token_ids,targets)
+            outputs = model(imgs,queries,answer_token_ids,targets)
             total_loss = outputs
             losses = {
                 'total_loss': total_loss
@@ -450,11 +471,15 @@ def train_worker(gpu,cfg):
             #total_loss, losses = gpv_criterion(outputs,targets)
             if total_loss is not None:
                 optimizer.zero_grad()
+                # if detr_optimizer is not None:
+                #     detr_optimizer.zero_grad()
+
                 total_loss.backward()
                 if cfg.training.clip_max_norm > 0:
                     torch.nn.utils.clip_grad_norm_(
-                        other_params, 
+                        params['detr_backbone']+params['detr_head'], 
                         cfg.training.clip_max_norm)
+
                 optimizer.step()
             
             if gpu==0 and step%cfg.training.log_step==0:
@@ -492,8 +517,8 @@ def train_worker(gpu,cfg):
                 print('Exp:',cfg.exp_name)
                     
             if gpu==0 and step%cfg.training.ckpt_step==0:
-                print('Saving checkpoint ...')
                 if model_selection_metric > best_metric:
+                    print('Saving checkpoint ...')
                     best_metric = model_selection_metric
                     best_epoch = epoch
                     torch.save({
@@ -516,14 +541,13 @@ def train_worker(gpu,cfg):
         if not cfg.training.lr_linear_decay:
             lr_scheduler.step()
 
-@hydra.main(config_path=f'../../configs',config_name=f"exp/gpv_biatt_box_text_coco_feats")
+@hydra.main(config_path=f'../../configs',config_name=f"exp/gpv_biatt_box_text_coco")
 def main(cfg):
     io.mkdir_if_not_exists(cfg.ckpt_dir,recursive=True)
     io.mkdir_if_not_exists(cfg.tb_dir,recursive=True)
     nltk.download('punkt')
     
     if cfg.training.freeze:
-        cfg.training.num_epochs = cfg.training.frozen_epochs
         cfg.training.batch_size = cfg.training.frozen_batch_size
         cfg.batch_size = cfg.training.frozen_batch_size
 

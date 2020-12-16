@@ -19,7 +19,7 @@ from data.coco.synonyms import SYNONYMS
 import exp.gpv_box_text.evaluators as evaluators
 from .models.gpv import GPV
 from .models.losses import GPVCriterion
-from datasets.coco_multitask_feats_dataset import CocoMultitaskDataset
+from datasets.coco_multitask_dataset import CocoMultitaskDataset
 from utils.bbox_utils import vis_bbox
 from utils.detr_misc import collate_fn
 import utils.io as io
@@ -45,11 +45,10 @@ def make_predictions(model,dataloader,samples,cfg):
             and (i > cfg.eval.num_eval_batches):
             break
 
-        imgs, feats, queries, targets = data
-        feats = feats.cuda(cfg.gpu)
-        #imgs = imgs.to(torch.device(cfg.gpu))
+        imgs, queries, targets = data
+        imgs = imgs.to(torch.device(cfg.gpu))
 
-        outputs = model(feats,queries,None,vocab_mask=vocab_mask)
+        outputs = model(imgs,queries,None,vocab_mask=vocab_mask)
         relevance = outputs['pred_relevance_logits'].softmax(-1).detach().cpu().numpy()
         pred_boxes = outputs['pred_boxes'].detach().cpu().numpy()
         topk_answers = torch.topk(outputs['answer_logits'][-1],k=1,dim=-1)
@@ -124,7 +123,7 @@ def create_coco_vocab_mask(model,use_syns=False):
     return tokens, mask
     
 
-@hydra.main(config_path=f'../../configs',config_name=f"exp/gpv_biatt_box_text_coco_feats")
+@hydra.main(config_path=f'../../configs',config_name=f"exp/gpv_biatt_box_text_coco")
 def main(cfg):
     eval_dir = os.path.join(cfg.exp_dir,'eval')
     io.mkdir_if_not_exists(eval_dir,recursive=True)
