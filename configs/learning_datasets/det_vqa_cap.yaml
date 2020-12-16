@@ -1,0 +1,10 @@
+learning_datasets:
+  CocoDetection:
+    task_config: coco_detection
+    name: coco_det
+  CocoVqa:
+    task_config: coco_vqa
+    name: coco_vqa
+  CocoCaptioning:
+    task_config: coco_captioning
+    name: coco_cap
