@@ -274,14 +274,20 @@ def train_worker(gpu,cfg):
 
     if cfg.multiprocessing_distributed:
         cfg.rank = cfg.rank * cfg.ngpus_per_node + cfg.gpu
+
+        torch.cuda.set_device(cfg.gpu)
+        
         dist.init_process_group(
             backend=cfg.dist_backend, 
             init_method=cfg.dist_url,
             world_size=cfg.world_size,
             rank=cfg.rank)
 
-        # Setup distributed model
-        torch.cuda.set_device(cfg.gpu)
+        model = GPV(cfg.model)
+        model.load_pretr_detr()
+        if cfg.training.freeze is True:
+            freeze_detr_params(model)
+
         model.cuda(cfg.gpu)
         init_detr_params = model.init_detr_params
         word_to_idx = model.word_to_idx
@@ -299,6 +305,11 @@ def train_worker(gpu,cfg):
         sampler['train'] = torch.utils.data.distributed.DistributedSampler(
             datasets['train'],shuffle=True)
     else:
+        model = GPV(cfg.model)
+        model.load_pretr_detr()
+        if cfg.training.freeze is True:
+            freeze_detr_params(model)
+
         model.cuda(cfg.gpu)
         sampler = {'train': None, 'val': None}
 
@@ -408,41 +419,46 @@ def train_worker(gpu,cfg):
         if gpu==0: # and epoch>0:
             for eval_subset in ['train','val']:
                 # uncomment to eval on vqa
-                print(f'Evaluating {eval_subset}')
-                vqa_dataset = dataloaders[eval_subset].dataset.datasets['coco_vqa']
-                vqa_dataloader = DataLoader(
-                    vqa_dataset,
-                    batch_size=cfg.batch_size,
-                    num_workers=cfg.workers,
-                    shuffle=False,
-                    collate_fn=detr_collate_fn)
-                with torch.no_grad():
-                    vqa_acc = vqa_accuracy(model,vqa_dataloader,cfg)
+                vqa_acc = 0
+                if 'coco_vqa' in dataloaders[eval_subset].dataset.datasets:
+                    print(f'Evaluating on VQA {eval_subset}')
+                    vqa_dataset = dataloaders[eval_subset].dataset.datasets['coco_vqa']
+                    vqa_dataloader = DataLoader(
+                        vqa_dataset,
+                        batch_size=cfg.batch_size,
+                        num_workers=cfg.workers,
+                        shuffle=False,
+                        collate_fn=detr_collate_fn)
+                    with torch.no_grad():
+                        vqa_acc = vqa_accuracy(model,vqa_dataloader,cfg)
 
-                print(f'Subset: {eval_subset} | Epoch: {epoch} | Acc: {vqa_acc}')
-                writer.add_scalar(f'vqa_acc/{eval_subset}',vqa_acc,step)
+                    print(f'Subset: {eval_subset} | Epoch: {epoch} | Acc: {vqa_acc}')
+                    writer.add_scalar(f'vqa_acc/{eval_subset}',vqa_acc,step)
 
-                # # eval on cap
-                # cap_dataset = dataloaders[eval_subset].dataset.datasets['coco_cap']
-                # cap_dataloader = DataLoader(
-                #     cap_dataset,
-                #     batch_size=cfg.batch_size,
-                #     num_workers=cfg.workers,
-                #     shuffle=False,
-                #     collate_fn=detr_collate_fn)
-                # with torch.no_grad():
-                #     metrics = cap_metrics(model,cap_dataloader,cfg)
-                #     cider = metrics['Cider']
-                #     bleu1 =  metrics['Bleu1']
-                #     bleu4 =  metrics['Bleu4']
+                # eval on cap
+                cider = 0
+                if 'coco_cap' in dataloaders[eval_subset].dataset.datasets:
+                    print(f'Evaluating on Cap {eval_subset}')
+                    cap_dataset = dataloaders[eval_subset].dataset.datasets['coco_cap']
+                    cap_dataloader = DataLoader(
+                        cap_dataset,
+                        batch_size=cfg.batch_size,
+                        num_workers=cfg.workers,
+                        shuffle=False,
+                        collate_fn=detr_collate_fn)
+                    with torch.no_grad():
+                        metrics = cap_metrics(model,cap_dataloader,cfg)
+                        cider = metrics['Cider']
+                        bleu1 =  metrics['Bleu1']
+                        bleu4 =  metrics['Bleu4']
 
-                # print(f'Subset: {eval_subset} | Epoch: {epoch} | Bleu1: {bleu1} | Bleu4: {bleu4} | Cider: {cider}')
-                # writer.add_scalar(f'cap_metrics/{eval_subset}/cider',cider,step)
-                # writer.add_scalar(f'cap_metrics/{eval_subset}/bleu1',bleu1,step)
-                # writer.add_scalar(f'cap_metrics/{eval_subset}/bleu4',bleu4,step)
+                    print(f'Subset: {eval_subset} | Epoch: {epoch} | Bleu1: {bleu1} | Bleu4: {bleu4} | Cider: {cider}')
+                    writer.add_scalar(f'cap_metrics/{eval_subset}/cider',cider,step)
+                    writer.add_scalar(f'cap_metrics/{eval_subset}/bleu1',bleu1,step)
+                    writer.add_scalar(f'cap_metrics/{eval_subset}/bleu4',bleu4,step)
 
                 if eval_subset=='val':
-                    model_selection_metric = vqa_acc #cider
+                    model_selection_metric = vqa_acc+cider
 
         if cfg.multiprocessing_distributed:
             sampler['train'].set_epoch(epoch)
@@ -471,9 +487,6 @@ def train_worker(gpu,cfg):
             #total_loss, losses = gpv_criterion(outputs,targets)
             if total_loss is not None:
                 optimizer.zero_grad()
-                # if detr_optimizer is not None:
-                #     detr_optimizer.zero_grad()
-
                 total_loss.backward()
                 if cfg.training.clip_max_norm > 0:
                     torch.nn.utils.clip_grad_norm_(
@@ -560,8 +573,6 @@ def main(cfg):
     else:
         train_worker(cfg.gpu,cfg)
     
-    
-
 
 if __name__=='__main__':
     main()
