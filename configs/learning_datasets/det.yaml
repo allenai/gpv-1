@@ -1,0 +1,4 @@
+learning_datasets:
+  CocoDetection:
+    task_config: coco_detection
+    name: coco_det

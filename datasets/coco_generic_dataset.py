@@ -58,8 +58,8 @@ class GenericCocoDataset(Dataset):
             img = img[:,:,:3]
         
         original_image_size = img.shape[:2] # HxW
-        resized_image_size = resize(img,(self.imh,self.imw),anti_aliasing=True)
-        return resized_image_size, original_image_size
+        resized_image = resize(img,(self.imh,self.imw),anti_aliasing=True)
+        return resized_image, original_image_size
 
     def get_boxes(self,coco_boxes,fmt='xyxy'):
         boxes = []

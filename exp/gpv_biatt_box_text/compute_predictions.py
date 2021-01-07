@@ -9,6 +9,7 @@ import torch.distributed as dist
 import itertools
 import numpy as np
 import skimage.io as skio
+import imagesize
 from tqdm import tqdm
 from nltk.tokenize import word_tokenize
 from nltk.tokenize.treebank import TreebankWordDetokenizer
@@ -123,6 +124,21 @@ def create_coco_vocab_mask(model,use_syns=False):
     return tokens, mask
     
 
+def update_samples_with_image_size(image_dir,samples):
+    for sample in tqdm(samples):
+        image_id = sample['image']['image_id']
+        image_subset = sample['image']['subset']
+        image_filename = os.path.join(
+            os.path.join(image_dir,image_subset),
+            'COCO_'+image_subset+'_'+str(image_id).zfill(12)+'.jpg')
+
+        W,H = imagesize.get(image_filename)
+        sample['image']['W'] = W
+        sample['image']['H'] = H
+    
+    return samples
+
+
 @hydra.main(config_path=f'../../configs',config_name=f"exp/gpv_biatt_box_text_coco")
 def main(cfg):
     eval_dir = os.path.join(cfg.exp_dir,'eval')
@@ -162,6 +178,11 @@ def main(cfg):
     boxes_h5py = h5py.File(os.path.join(
         eval_dir,f'{cfg.eval.task}_{cfg.eval.subset}_boxes.h5py'),'r')
 
+    if cfg.eval.task=='CocoDetection':
+        samples = update_samples_with_image_size(
+            cfg.task_configs.image_dir,
+            samples)
+    
     Evaluator = getattr(evaluators,cfg.eval.task)
     evaluator = Evaluator(samples,predictions,boxes_h5py)
     metrics = {}
