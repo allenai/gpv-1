@@ -1,0 +1,4 @@
+learning_datasets:
+  CocoCaptioning:
+    task_config: coco_captioning
+    name: coco_cap
