@@ -269,11 +269,12 @@ class CocoDetection(CocoEval):
         if total==0:
             APs = {}
             mAP = None
-
-        eval_engine = det_evaluator.Evaluator()
-        det_metrics = eval_engine.GetPascalVOCMetrics(all_boxes,iou_thresh)
-        APs = {m['class']: m['AP'] for m in det_metrics}
-        mAP = np.mean(list(APs.values()))
+        else:
+            eval_engine = det_evaluator.Evaluator()
+            det_metrics = eval_engine.GetPascalVOCMetrics(all_boxes,iou_thresh)
+            APs = {m['class']: m['AP'] for m in det_metrics}
+            mAP = np.mean(list(APs.values()))
+        
         metrics = {
             'absent': absent,
             'total': total,
