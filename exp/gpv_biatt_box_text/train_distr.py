@@ -1,5 +1,6 @@
 import os
 import nltk
+import h5py
 import hydra
 import torch
 import torch.nn as nn
@@ -7,6 +8,7 @@ from torch.utils.tensorboard import SummaryWriter
 import torch.multiprocessing as mp
 import torch.distributed as dist
 import itertools
+import imagesize
 import numpy as np
 import skimage.io as skio
 from utils.detr_misc import collate_fn as detr_collate_fn
@@ -61,7 +63,7 @@ def visualize(model,dataloader,cfg,step,subset):
         imgs = imgs.to(torch.device(device))
         for t in targets:
             for k,v in t.items():
-                if k!='answer':
+                if not isinstance(v,str):
                     t[k] = v.cuda(device)
         
         answer_tokens,answer_token_ids = model.encode_answers(targets)
@@ -150,7 +152,7 @@ def vqa_accuracy(model,dataloader,cfg):
         imgs = imgs.to(torch.device(device))
         for t in targets:
             for k,v in t.items():
-                if k!='answer':
+                if not isinstance(v,str):
                     t[k] = v.cuda(device)
         
         answer_tokens,answer_token_ids = model.encode_answers(targets)
@@ -203,7 +205,7 @@ def cap_metrics(model,dataloader,cfg):
         imgs = imgs.to(torch.device(device))
         for t in targets:
             for k,v in t.items():
-                if k!='answer':
+                if not isinstance(v,str):
                     t[k] = v.cuda(device)
         
         answer_tokens,answer_token_ids = model.encode_answers(targets)
@@ -236,6 +238,97 @@ def cap_metrics(model,dataloader,cfg):
         k:v for k,v in cap_evaluator.scorers.items() if k in ['Bleu','Cider']}
     metrics = cap_evaluator.evaluate()
     return metrics['scores']
+
+
+def update_samples_with_image_size(image_dir,samples):
+    for sample in tqdm(samples):
+        image_id = sample['image']['image_id']
+        image_subset = sample['image']['subset']
+        image_filename = os.path.join(
+            os.path.join(image_dir,image_subset),
+            'COCO_'+image_subset+'_'+str(image_id).zfill(12)+'.jpg')
+
+        W,H = imagesize.get(image_filename)
+        sample['image']['W'] = W
+        sample['image']['H'] = H
+    
+    return samples
+
+
+def det_metrics(model,dataloader,cfg):
+    samples = dataloader.dataset.samples
+    device = f'cuda:{cfg.gpu}'
+    word_to_idx = model.word_to_idx
+    idx_to_word = [None]*len(word_to_idx)
+    for word,idx in word_to_idx.items():
+        idx_to_word[idx] = word
+
+    model.eval()
+    
+    detokenizer = TreebankWordDetokenizer()
+    predictions = {}
+    total = 0
+    end_eval = False
+    eval_dir = os.path.join(cfg.exp_dir,'train_time_eval')
+    io.mkdir_if_not_exists(eval_dir)
+    boxes_h5py_path = os.path.join(
+        eval_dir,f'det_{dataloader.dataset.subset}_boxes.h5py')
+    boxes_h5py = h5py.File(boxes_h5py_path,'w')
+    for data in tqdm(dataloader):
+        imgs, queries, targets = data
+        imgs = imgs.to(torch.device(device))
+        for t in targets:
+            for k,v in t.items():
+                if not isinstance(v,str):
+                    t[k] = v.cuda(device)
+        
+        answer_tokens,answer_token_ids = model.encode_answers(targets)
+        for i,t in enumerate(targets):
+            t['answer_token_ids'] = answer_token_ids[i,1:]
+
+        outputs = model(imgs,queries,answer_token_ids=None)
+        relevance = outputs['pred_relevance_logits'].softmax(-1).detach().cpu().numpy()
+        pred_boxes = outputs['pred_boxes'].detach().cpu().numpy()
+        B = len(targets)
+        for b in range(B):
+            if total >= cfg.training.num_val_samples['coco_det']:
+                end_eval = True
+                break
+            
+            scores, boxes = zip(*sorted(zip(
+                relevance[b,:,0].tolist(),pred_boxes[b].tolist()),
+                key=lambda x: x[0],reverse=True))
+            scores = np.array(scores,dtype=np.float32)
+            boxes = np.array(boxes,dtype=np.float32)
+            sample_id = samples[total]['id']
+            grp = boxes_h5py.create_group(str(sample_id))
+            grp.create_dataset('boxes',data=boxes)
+            grp.create_dataset('relevance',data=scores)
+            predictions[str(sample_id)] = {
+                'answer': ''
+            }
+                
+            total += 1
+        
+        if end_eval:
+            break
+
+    boxes_h5py.close()
+
+    samples = update_samples_with_image_size(
+        cfg.task_configs.image_dir,
+        samples)
+
+    boxes_h5py = h5py.File(boxes_h5py_path,'r')
+    det_evaluator = evaluators.CocoDetection(samples,predictions,boxes_h5py)
+    metrics = det_evaluator.evaluate()
+    boxes_h5py.close()
+    os.remove(boxes_h5py_path)
+    APs = list(metrics['AP'].values())
+    print('Num class APs:',len(APs))
+    APs = [a for a in APs if not np.isnan(a)]
+    print('Num non-nan class APs:',len(APs))
+    return np.mean(APs)
 
 
 def freeze_detr_params(model,requires_grad=False):
@@ -418,7 +511,7 @@ def train_worker(gpu,cfg):
     for epoch in range(last_epoch+1,training_epochs):
         if gpu==0: # and epoch>0:
             for eval_subset in ['train','val']:
-                # uncomment to eval on vqa
+                # eval on vqa
                 vqa_acc = 0
                 if 'coco_vqa' in dataloaders[eval_subset].dataset.datasets:
                     print(f'Evaluating on VQA {eval_subset}')
@@ -457,8 +550,25 @@ def train_worker(gpu,cfg):
                     writer.add_scalar(f'cap_metrics/{eval_subset}/bleu1',bleu1,step)
                     writer.add_scalar(f'cap_metrics/{eval_subset}/bleu4',bleu4,step)
 
+                # eval on det
+                det_map = 0
+                if 'coco_det' in dataloaders[eval_subset].dataset.datasets:
+                    print(f'Evaluating on Det {eval_subset}')
+                    det_dataset = dataloaders[eval_subset].dataset.datasets['coco_det']
+                    det_dataloader = DataLoader(
+                        det_dataset,
+                        batch_size=cfg.batch_size,
+                        num_workers=cfg.workers,
+                        shuffle=False,
+                        collate_fn=detr_collate_fn)
+                    with torch.no_grad():
+                        det_map = det_metrics(model,det_dataloader,cfg)
+
+                    print(f'Subset: {eval_subset} | Epoch: {epoch} | mAP: {det_map}')
+                    writer.add_scalar(f'det_map/{eval_subset}',det_map,step)
+                
                 if eval_subset=='val':
-                    model_selection_metric = vqa_acc+cider
+                    model_selection_metric = vqa_acc+cider+det_map
 
         if cfg.multiprocessing_distributed:
             sampler['train'].set_epoch(epoch)
@@ -469,7 +579,7 @@ def train_worker(gpu,cfg):
             imgs = imgs.to(torch.device(gpu))
             for t in targets:
                 for k,v in t.items():
-                    if k!='answer':
+                    if not isinstance(v,str):
                         t[k] = v.cuda(device)
             
             model.train()
@@ -500,7 +610,7 @@ def train_worker(gpu,cfg):
                 if cfg.training.lr_linear_decay:
                     loss_str += f' LR: {warmup_scheduler.get_last_lr()[0]} | '
                 loss_value = round(total_loss.item(),4)
-                loss_str += f'total_loss: {loss_value} | '
+                #loss_str += f'total_loss: {loss_value} | '
                 writer.add_scalar('Epoch',epoch,step)
                 writer.add_scalar('Iter',it,step)
                 writer.add_scalar('Step',step,step)
