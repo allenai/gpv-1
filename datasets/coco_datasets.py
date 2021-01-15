@@ -17,6 +17,11 @@ from .coco_generic_dataset import GenericCocoDataset
 class CocoCaptioning(GenericCocoDataset):
     def __init__(self,cfg,subset):
         super().__init__(cfg,subset)
+    
+    def __getitem__(self,i):
+        outputs = super().__getitem__(i)
+        outputs[-1]['task'] = 'CocoCaptioning'
+        return outputs
 
 class CocoDetection(GenericCocoDataset):
     def __init__(self,cfg,subset):
@@ -31,6 +36,11 @@ class CocoDetection(GenericCocoDataset):
                 T.ToTensor(),
                 T.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225])
             ])
+
+    def __getitem__(self,i):
+        outputs = super().__getitem__(i)
+        outputs[-1]['task'] = 'CocoDetection'
+        return outputs
 
 class CocoVqa(GenericCocoDataset):
     def __init__(self,cfg,subset):
@@ -57,7 +67,7 @@ class CocoVqa(GenericCocoDataset):
         if len(all_answers) > 0:
             selected_answer = random.choice(all_answers)
         
-        targets = {'answer': selected_answer}
+        targets = {'answer': selected_answer, 'task': 'CocoVqa'}
 
         if self.cfg.read_image is True:
             return img, query, targets
@@ -118,7 +128,7 @@ class CocoClassification(GenericCocoDataset):
         
         query = sample['query']
 
-        targets = {'answer': sample['answer']}
+        targets = {'answer': sample['answer'], 'task': 'CocoClassification'}
 
         if self.cfg.read_image is True:
             return img, query, targets
