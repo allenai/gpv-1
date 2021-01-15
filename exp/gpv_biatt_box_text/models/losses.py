@@ -17,6 +17,14 @@ class AnswerClassification(nn.Module):
         self.ce_loss = nn.CrossEntropyLoss(
             reduction='none',ignore_index=ignore_index)
 
+    def compute_ce_loss(self,filtered_logits,filtered_targets):
+        L,B,S,V = filtered_logits.size()
+        filtered_logits = filtered_logits.permute(1,3,2,0) # BxVxSxL
+        tgts = torch.stack([t['answer_token_ids'] for t in filtered_targets])
+        tgts = tgts.view(B,S,1).repeat(1,1,L)
+        losses = self.ce_loss(filtered_logits,tgts) # BxSXL
+        return losses.mean(0).sum(0).sum()
+
     def forward(self,outputs,targets):
         idx_filtered_targets = [(
             i,t) for i,t in enumerate(targets) if 'answer' in t]
@@ -25,13 +33,39 @@ class AnswerClassification(nn.Module):
 
         idxs, filtered_targets = zip(*idx_filtered_targets)
         idxs = list(idxs)
-        logits = outputs['answer_logits'][:,idxs]
-        L,B,S,V = logits.size()
-        logits = logits.permute(1,3,2,0) # BxVxSxL
-        tgts = torch.stack([t['answer_token_ids'] for t in filtered_targets])
-        tgts = tgts.view(B,S,1).repeat(1,1,L)
-        losses = self.ce_loss(logits,tgts) # BxSXL
-        return {'loss_answer':losses.mean(0).sum(0).sum()}
+        filtered_logits = outputs['answer_logits'][:,idxs]
+        loss = self.compute_ce_loss(filtered_logits,filtered_targets)
+        return {'loss_answer': loss}
+
+
+class CaptionLoss(AnswerClassification):
+    def forward(self,outputs,targets):
+        idx_filtered_targets = [(
+            i,t) for i,t in enumerate(targets) if 'answer' in t \
+                and t['task']=='CocoCaptioning']
+        if len(idx_filtered_targets)==0:
+            return {'loss_caption':None}
+
+        idxs, filtered_targets = zip(*idx_filtered_targets)
+        idxs = list(idxs)
+        filtered_logits = outputs['answer_logits'][:,idxs]
+        loss = self.compute_ce_loss(filtered_logits,filtered_targets)
+        return {'loss_caption': loss}
+
+
+class VqaLoss(AnswerClassification):
+    def forward(self,outputs,targets):
+        idx_filtered_targets = [(
+            i,t) for i,t in enumerate(targets) if 'answer' in t \
+                and t['task']=='CocoVqa']
+        if len(idx_filtered_targets)==0:
+            return {'loss_vqa':None}
+
+        idxs, filtered_targets = zip(*idx_filtered_targets)
+        idxs = list(idxs)
+        filtered_logits = outputs['answer_logits'][:,idxs]
+        loss = self.compute_ce_loss(filtered_logits,filtered_targets)
+        return {'loss_vqa': loss}
 
 
 class Localization(nn.Module):
