@@ -81,11 +81,17 @@ model:
   losses: ${losses}
 
 losses:
-  AnswerClassification:
-    name: answer_classification_criterion
+  CaptionLoss:
+    name: caption_criterion
     pad_idx: null
     loss_wts:
-      loss_answer: 1
+      loss_caption: 1
+  
+  VqaLoss:
+    name: vqa_criterion
+    pad_idx: null
+    loss_wts:
+      loss_vqa: 1
 
   Localization:
     name: localization_criterion
@@ -129,6 +135,7 @@ training:
   num_val_samples: 
     coco_vqa: 20000
     coco_cap: 10000
+    coco_det: 1000
 
 eval:
   task: CocoVqa
