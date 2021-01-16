@@ -6,6 +6,8 @@ hydra:
   run:
     dir: ${exp_dir}
 
+download_coco_images_only: False
+
 urls:
   coco:
     images:
