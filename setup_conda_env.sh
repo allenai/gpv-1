@@ -4,7 +4,7 @@
 ################################################################################
 # conda installs
 ################################################################################
-conda install pytorch torchvision cudatoolkit=10.2 -c pytorch -y
+conda install pytorch=1.6 torchvision cudatoolkit=10.2 -c pytorch -y
 conda install -c conda-forge scikit-image -y
 conda install -c conda-forge spacy -y
 conda install -c conda-forge spacy-lookups-data -y
