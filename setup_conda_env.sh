@@ -10,12 +10,13 @@ conda install -c conda-forge spacy -y
 conda install -c conda-forge spacy-lookups-data -y
 conda install h5py -y
 python -m spacy download en_core_web_sm
+conda install -c cyclus java-jdk
 
 
 ################################################################################
 # pip installs
 ################################################################################
-pip install hydra-core --upgrade --pre
+pip install hydra-core=1.0.0rc2
 pip install ipython
 pip install ipdb
 pip install tensorboard
