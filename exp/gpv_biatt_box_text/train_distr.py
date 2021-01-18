@@ -502,6 +502,7 @@ def train_worker(gpu,cfg):
         optimizer.zero_grad()
         optimizer.step()
 
+    model_selection_metric = 0
     best_metric = 0
     best_epoch = -1
     training_epochs = cfg.training.num_epochs
@@ -511,61 +512,47 @@ def train_worker(gpu,cfg):
     for epoch in range(last_epoch+1,training_epochs):
         if gpu==0: # and epoch>0:
             for eval_subset in ['train','val']:
-                # eval on vqa
                 vqa_acc = 0
-                if 'coco_vqa' in dataloaders[eval_subset].dataset.datasets:
-                    print(f'Evaluating on VQA {eval_subset}')
-                    vqa_dataset = dataloaders[eval_subset].dataset.datasets['coco_vqa']
-                    vqa_dataloader = DataLoader(
-                        vqa_dataset,
-                        batch_size=cfg.batch_size,
-                        num_workers=cfg.workers,
-                        shuffle=False,
-                        collate_fn=detr_collate_fn)
-                    with torch.no_grad():
-                        vqa_acc = vqa_accuracy(model,vqa_dataloader,cfg)
-
-                    print(f'Subset: {eval_subset} | Epoch: {epoch} | Acc: {vqa_acc}')
-                    writer.add_scalar(f'vqa_acc/{eval_subset}',vqa_acc,step)
-
-                # eval on cap
                 cider = 0
-                if 'coco_cap' in dataloaders[eval_subset].dataset.datasets:
-                    print(f'Evaluating on Cap {eval_subset}')
-                    cap_dataset = dataloaders[eval_subset].dataset.datasets['coco_cap']
-                    cap_dataloader = DataLoader(
-                        cap_dataset,
-                        batch_size=cfg.batch_size,
-                        num_workers=cfg.workers,
-                        shuffle=False,
-                        collate_fn=detr_collate_fn)
-                    with torch.no_grad():
-                        metrics = cap_metrics(model,cap_dataloader,cfg)
-                        cider = metrics['Cider']
-                        bleu1 =  metrics['Bleu1']
-                        bleu4 =  metrics['Bleu4']
-
-                    print(f'Subset: {eval_subset} | Epoch: {epoch} | Bleu1: {bleu1} | Bleu4: {bleu4} | Cider: {cider}')
-                    writer.add_scalar(f'cap_metrics/{eval_subset}/cider',cider,step)
-                    writer.add_scalar(f'cap_metrics/{eval_subset}/bleu1',bleu1,step)
-                    writer.add_scalar(f'cap_metrics/{eval_subset}/bleu4',bleu4,step)
-
-                # eval on det
                 det_map = 0
-                if 'coco_det' in dataloaders[eval_subset].dataset.datasets:
-                    print(f'Evaluating on Det {eval_subset}')
-                    det_dataset = dataloaders[eval_subset].dataset.datasets['coco_det']
-                    det_dataloader = DataLoader(
-                        det_dataset,
+                for dataset_name in dataloaders[eval_subset].dataset.datasets:
+                    print(f'Evaluating on {dataset_name} {eval_subset}')
+                    eval_dataset = dataloaders[eval_subset].dataset.datasets[dataset_name]
+                    eval_dataloader = DataLoader(
+                        eval_dataset,
                         batch_size=cfg.batch_size,
                         num_workers=cfg.workers,
                         shuffle=False,
                         collate_fn=detr_collate_fn)
-                    with torch.no_grad():
-                        det_map = det_metrics(model,det_dataloader,cfg)
+                    
+                    if dataset_name=='coco_vqa':
+                        with torch.no_grad():
+                            vqa_acc = vqa_accuracy(model,eval_dataloader,cfg)
 
-                    print(f'Subset: {eval_subset} | Epoch: {epoch} | mAP: {det_map}')
-                    writer.add_scalar(f'det_map/{eval_subset}',det_map,step)
+                        print(f'Dataset: {dataset_name} | Subset: {eval_subset} | Epoch: {epoch} | Acc: {vqa_acc}')
+                        writer.add_scalar(f'vqa_acc/{eval_subset}',vqa_acc,step)
+                    
+                    elif dataset_name=='coco_cap':
+                        with torch.no_grad():
+                            metrics = cap_metrics(model,eval_dataloader,cfg)
+                            cider = metrics['Cider']
+                            bleu1 =  metrics['Bleu1']
+                            bleu4 =  metrics['Bleu4']
+
+                        print(f'Dataset: {dataset_name} | Subset: {eval_subset} | Epoch: {epoch} | Bleu1: {bleu1} | Bleu4: {bleu4} | Cider: {cider}')
+                        writer.add_scalar(f'cap_metrics/{eval_subset}/cider',cider,step)
+                        writer.add_scalar(f'cap_metrics/{eval_subset}/bleu1',bleu1,step)
+                        writer.add_scalar(f'cap_metrics/{eval_subset}/bleu4',bleu4,step)
+                    
+                    elif dataset_name=='coco_det':
+                        with torch.no_grad():
+                            det_map = det_metrics(model,eval_dataloader,cfg)
+
+                        print(f'Dataset: {dataset_name} | Subset: {eval_subset} | Epoch: {epoch} | mAP: {det_map}')
+                        writer.add_scalar(f'det_map/{eval_subset}',det_map,step)
+                    
+                    else:
+                        print(f'Eval not implemented for {dataset_name}')
                 
                 if eval_subset=='val':
                     model_selection_metric = vqa_acc+cider+det_map
