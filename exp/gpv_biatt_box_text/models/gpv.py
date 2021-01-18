@@ -110,7 +110,7 @@ class GPV(nn.Module):
 
         self.pos_enc = nn.Parameter(positionalencoding1d(
             cfg.text_decoder.hidden_dim,
-            cfg.max_text_len).view(1,self.cfg.max_text_len,-1)) # 1xSxD
+            cfg.max_pos_enc_len).view(1,self.cfg.max_pos_enc_len,-1)) # 1xSxD
         self.pos_enc.requires_grad = False
 
     

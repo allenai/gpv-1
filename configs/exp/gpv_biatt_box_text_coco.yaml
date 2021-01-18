@@ -27,7 +27,8 @@ model:
   pretr_detr: /home/tanmayg/Data/gpv/detr/detr_gpv_checkpoint0299.pth #/home/tanmayg/Data/gpv/coco_exp/detr-r50-e632da11.pth
   vocab: /home/tanmayg/Data/gpv/learning_phase_data/vocab/vocab.json
   vocab_embed: /home/tanmayg/Data/gpv/learning_phase_data/vocab/vocab_embed.npy
-  max_text_len: 5 #20
+  max_pos_enc_len: 30
+  max_text_len: 20
   answer_head: null
   answering_type: generation
   hidden_dim: 768
