@@ -35,7 +35,7 @@ aws s3 cp s3://ai2-prior-gpv/vision_servers ~/.ssh/
 chmod 600 ~/.ssh/vision_servers
 eval `ssh-agent`
 ssh-add ~/.ssh/vision_servers
-git clone git@github.com:allenai/gpv.git
+git clone --recurse-submodules git@github.com:allenai/gpv.git
 ```
 
 # Download data
