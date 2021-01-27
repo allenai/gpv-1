@@ -5,12 +5,13 @@
 # conda installs
 ################################################################################
 conda install pytorch=1.6 torchvision cudatoolkit=10.2 -c pytorch -y
-conda install -c conda-forge scikit-image -y
-conda install -c conda-forge spacy -y
-conda install -c conda-forge spacy-lookups-data -y
+conda install -c conda-forge scikit-image spacy spacy-lookups-data -y
+# conda install -c conda-forge scikit-image -y
+# conda install -c conda-forge spacy -y
+# conda install -c conda-forge spacy-lookups-data -y
 conda install h5py -y
+conda install -c cyclus java-jdk -y
 python -m spacy download en_core_web_sm
-conda install -c cyclus java-jdk
 
 
 ################################################################################
