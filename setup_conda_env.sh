@@ -17,7 +17,7 @@ python -m spacy download en_core_web_sm
 ################################################################################
 # pip installs
 ################################################################################
-pip install hydra-core=1.0.0rc2
+pip install hydra-core==1.0.0rc2
 pip install ipython
 pip install ipdb
 pip install tensorboard
