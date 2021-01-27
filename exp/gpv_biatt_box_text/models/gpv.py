@@ -7,6 +7,7 @@ import torch.nn as nn
 from transformers import BertTokenizer, BertModel
 
 from .detr import create_detr
+from .detr_roi_head import create_detr_roi_head
 from .bert import Bert
 from .answer_head import build_answer_head
 from .vilbert import BertConnectionLayer
@@ -60,7 +61,11 @@ class GPV(nn.Module):
         self.cfg = cfg
 
         # visual stream
-        self.detr = create_detr(cfg.detr)
+        if cfg.roi_head is True:
+            self.detr = create_detr_roi_head(cfg.detr)
+        else:
+            self.detr = create_detr(cfg.detr)
+            
         self.detr_joiner = nn.Linear(
             cfg.detr_joiner.detr_dim,
             cfg.detr_joiner.out_dim)

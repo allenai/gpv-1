@@ -1,0 +1,133 @@
+# Copyright (c) Facebook, Inc. and its affiliates. All Rights Reserved
+"""
+DETR model and criterion classes.
+"""
+import torch
+import torch.nn.functional as F
+from torch import nn
+import torchvision
+
+import utils.box_ops as box_ops
+from utils.detr_misc import (NestedTensor, nested_tensor_from_tensor_list,
+                       accuracy, get_world_size, interpolate,
+                       is_dist_avail_and_initialized)
+
+from .backbone import build_backbone
+from .transformer import build_transformer
+from utils.matcher import build_matcher
+
+
+class DETR(nn.Module):
+    """ This is the DETR module that performs object detection """
+    def __init__(self, backbone, transformer, num_classes, num_queries, last_layer_only, aux_loss=False):
+        """ Initializes the model.
+        Parameters:
+            backbone: torch module of the backbone to be used. See backbone.py
+            transformer: torch module of the transformer architecture. See transformer.py
+            num_classes: number of object classes
+            num_queries: number of object queries, ie detection slot. This is the maximal number of objects
+                         DETR can detect in a single image. For COCO, we recommend 100 queries.
+            aux_loss: True if auxiliary decoding losses (loss at each decoder layer) are to be used.
+        """
+        super().__init__()
+        self.num_queries = num_queries
+        self.transformer = transformer
+        hidden_dim = transformer.d_model
+        self.class_embed = nn.Linear(hidden_dim, num_classes + 1)
+        self.bbox_embed = MLP(hidden_dim, hidden_dim, 4, 3)
+        self.query_embed = nn.Embedding(num_queries, hidden_dim)
+        self.input_proj = nn.Conv2d(backbone.num_channels, hidden_dim, kernel_size=1)
+        self.backbone = backbone
+        self.last_layer_only = last_layer_only
+        self.aux_loss = aux_loss
+
+    def extract_roi(self,features,boxes):
+        roi_extractor = torchvision.ops.roi_align
+        B,C,H,W = features.size()
+        _,N,_ = boxes.size() # BxNx4 where N is the number of boxes cx,cy,w,h
+        scaled_boxes = 0*boxes
+        scaled_boxes[:,:,0] = W*(boxes[:,:,0] - 0.5*boxes[:,:,2])
+        scaled_boxes[:,:,1] = H*(boxes[:,:,1] - 0.5*boxes[:,:,3])
+        scaled_boxes[:,:,2] = W*(boxes[:,:,0] + 0.5*boxes[:,:,2])
+        scaled_boxes[:,:,3] = H*(boxes[:,:,1] + 0.5*boxes[:,:,3])
+        scaled_boxes = torch.unbind(scaled_boxes)
+        roi_features = roi_extractor(features,scaled_boxes,output_size=7,aligned=True)
+        roi_features = roi_features.view(B,N,C,7,7).mean(-1).mean(-1)
+        return roi_features
+
+    def forward(self, samples: NestedTensor):
+        """ The forward expects a NestedTensor, which consists of:
+               - samples.tensor: batched images, of shape [batch_size x 3 x H x W]
+               - samples.mask: a binary mask of shape [batch_size x H x W], containing 1 on padded pixels
+            It returns a dict with the following elements:
+               - "pred_relevance_logits": the classification logits (including no-object) for all queries.
+                                Shape= [batch_size x num_queries x (num_classes + 1)]
+               - "pred_boxes": The normalized boxes coordinates for all queries, represented as
+                               (center_x, center_y, height, width). These values are normalized in [0, 1],
+                               relative to the size of each individual image (disregarding possible padding).
+                               See PostProcess for information on how to retrieve the unnormalized bounding box.
+               - "aux_outputs": Optional, only returned when auxilary losses are activated. It is a list of
+                                dictionnaries containing the two above keys for each decoder layer.
+        """
+        if isinstance(samples, (list, torch.Tensor)):
+            samples = nested_tensor_from_tensor_list(samples)
+            
+        features, pos = self.backbone(samples)
+
+        src, mask = features[-1].decompose()
+        assert mask is not None
+        hs = self.transformer(self.input_proj(src), mask, self.query_embed.weight, pos[-1])[0]
+        L,B,Q,D = hs.size()
+        if (self.last_layer_only is True) or (self.training is not True):
+            hs = hs[-1].view(1,B,Q,D)
+        outputs_class = self.class_embed(hs)
+        outputs_coord = self.bbox_embed(hs).sigmoid()
+        out = {'pred_relevance_logits': outputs_class[-1], 'pred_boxes': outputs_coord[-1], 'detr_hs': hs}
+        if self.aux_loss:
+            out['aux_outputs'] = self._set_aux_loss(outputs_class, outputs_coord)
+
+        roi_features = self.extract_roi(src,out['pred_boxes'])
+        roi_features = torch.unsqueeze(roi_features,0)
+        roi_features = F.layer_norm(roi_features,(roi_features.size(-1),))
+        out['detr_hs'] = torch.cat((roi_features,hs),-1)
+        
+        return out
+
+    @torch.jit.unused
+    def _set_aux_loss(self, outputs_class, outputs_coord):
+        # this is a workaround to make torchscript happy, as torchscript
+        # doesn't support dictionary with non-homogeneous values, such
+        # as a dict having both a Tensor and a list.
+        return [{'pred_relevance_logits': a, 'pred_boxes': b}
+                for a, b in zip(outputs_class[:-1], outputs_coord[:-1])]
+
+
+class MLP(nn.Module):
+    """ Very simple multi-layer perceptron (also called FFN)"""
+
+    def __init__(self, input_dim, hidden_dim, output_dim, num_layers):
+        super().__init__()
+        self.num_layers = num_layers
+        h = [hidden_dim] * (num_layers - 1)
+        self.layers = nn.ModuleList(nn.Linear(n, k) for n, k in zip([input_dim] + h, h + [output_dim]))
+
+    def forward(self, x):
+        for i, layer in enumerate(self.layers):
+            x = F.relu(layer(x)) if i < self.num_layers - 1 else layer(x)
+        return x
+
+
+def create_detr_roi_head(cfg):
+    backbone = build_backbone(cfg)
+
+    transformer = build_transformer(cfg)
+
+    model = DETR(
+        backbone,
+        transformer,
+        num_classes=cfg.num_classes,
+        num_queries=cfg.num_queries,
+        last_layer_only=cfg.last_layer_only,
+        aux_loss=cfg.aux_loss)
+    
+    return model
