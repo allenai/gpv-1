@@ -13,7 +13,7 @@ python -m exp.gpv_biatt_box_text.train_distr \
     losses.CaptionLoss.loss_wts.loss_caption=5e-2 \
     losses.VqaLoss.loss_wts.loss_vqa=1 \
     model.roi_head=False \
-    model.detr_joiner.detr_dim=2304 \
+    model.detr_joiner.detr_dim=256 \
     task_configs.coco_captioning.max_samples.train=73233 \
     task_configs.coco_detection.max_samples.train=43634 \
     task_configs.coco_vqa.max_samples.train=84597
@@ -31,7 +31,7 @@ python -m exp.gpv_biatt_box_text.train_distr \
     losses.CaptionLoss.loss_wts.loss_caption=5e-2 \
     losses.VqaLoss.loss_wts.loss_vqa=1 \
     model.roi_head=False \
-    model.detr_joiner.detr_dim=2304 \
+    model.detr_joiner.detr_dim=256 \
     task_configs.coco_captioning.max_samples.train=73233 \
     task_configs.coco_detection.max_samples.train=43634 \
     task_configs.coco_vqa.max_samples.train=84597
