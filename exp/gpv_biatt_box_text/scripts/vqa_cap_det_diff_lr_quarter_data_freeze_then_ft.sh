@@ -23,7 +23,7 @@ python -m exp.gpv_biatt_box_text.train_distr \
 ckpt="/home/tanmayg/Data/gpv/coco_exp/${EXP_NAME}/ckpts/model.pth"
 python -m exp.gpv_biatt_box_text.train_distr \
     exp_name=$EXP_NAME \
-    ngpus_per_node=2 \
+    ngpus_per_node=1 \
     multiprocessing_distributed=True \
     dist_url='tcp://localhost:10002' \
     learning_datasets=det_vqa_cap \
