@@ -41,7 +41,7 @@ model:
     num_encoder_layers: 6
     num_decoder_layers: 6
     backbone: resnet50
-    lr_backbone: 1e-5
+    lr_backbone: ${training.lr_backbone}
     position_embedding: sine
     masks: False
     dilation: False
@@ -120,6 +120,7 @@ training:
   log_step: 10
   ckpt_step: 2000
   lr: 1e-4
+  lr_backbone: 1e-5
   weight_decay: 1e-4
   lr_milestones:
     - 10
