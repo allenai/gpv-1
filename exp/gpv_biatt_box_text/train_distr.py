@@ -441,7 +441,7 @@ def train_worker(gpu,cfg):
         print(k,len(v))
     
     optimizer = torch.optim.AdamW([
-        {'params': params['detr_backbone'], 'lr': cfg.model.detr.lr_backbone},
+        {'params': params['detr_backbone'], 'lr': cfg.training.lr_backbone},
         {'params': params['detr_head']},
         {'params': params['bert']},
         {'params': params['others']}],
@@ -452,6 +452,9 @@ def train_worker(gpu,cfg):
 
     step = 0
     last_epoch = -1
+    model_selection_metric = 0
+    best_metric = 0
+    best_epoch = -1
     if cfg.training.ckpt is not None:
         loc = 'cuda:{}'.format(cfg.gpu)
         ckpt = torch.load(cfg.training.ckpt, map_location=loc)
@@ -467,6 +470,10 @@ def train_worker(gpu,cfg):
 
         step = ckpt['step']
         last_epoch = ckpt['epoch']
+        model_selection_metric = ckpt['model_selection_metric']
+        # since a checkpoint is saved only if it is has the best metric so far
+        best_metric = model_selection_metric
+        best_epoch = last_epoch
         print(f'Loading checkpoint at epoch: {last_epoch}')
 
     lr_scheduler = torch.optim.lr_scheduler.MultiStepLR(
@@ -502,9 +509,7 @@ def train_worker(gpu,cfg):
         optimizer.zero_grad()
         optimizer.step()
 
-    model_selection_metric = 0
-    best_metric = 0
-    best_epoch = -1
+    
     training_epochs = cfg.training.num_epochs
     if cfg.training.freeze is True:
         training_epochs = cfg.training.frozen_epochs
@@ -640,6 +645,7 @@ def train_worker(gpu,cfg):
                         'iter': it,
                         'step': step,
                         'lr': lr_scheduler.get_last_lr(),
+                        'model_selection_metric': model_selection_metric,
                         'warmup_scheduler': warmup_scheduler.state_dict() if cfg.training.lr_linear_decay else None,
                     }, os.path.join(cfg.ckpt_dir,'model.pth'))
 
