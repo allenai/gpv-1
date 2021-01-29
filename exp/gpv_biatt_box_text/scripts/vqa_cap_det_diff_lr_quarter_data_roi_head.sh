@@ -3,7 +3,7 @@ python -m exp.gpv_biatt_box_text.train_distr \
     exp_name=$EXP_NAME \
     ngpus_per_node=1 \
     multiprocessing_distributed=True \
-    dist_url='tcp://localhost:10001' \
+    dist_url='tcp://localhost:10003' \
     learning_datasets=det_vqa_cap \
     training.ckpt=null \
     training.freeze=True \
@@ -25,7 +25,7 @@ python -m exp.gpv_biatt_box_text.train_distr \
     exp_name=$EXP_NAME \
     ngpus_per_node=1 \
     multiprocessing_distributed=True \
-    dist_url='tcp://localhost:10001' \
+    dist_url='tcp://localhost:10003' \
     learning_datasets=det_vqa_cap \
     training.ckpt=$ckpt \
     training.freeze=True \
