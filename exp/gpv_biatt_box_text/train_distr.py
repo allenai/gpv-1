@@ -509,8 +509,9 @@ def train_worker(gpu,cfg):
     if cfg.training.freeze is True:
         training_epochs = cfg.training.frozen_epochs
 
+    launch = True
     for epoch in range(last_epoch+1,training_epochs):
-        if gpu==0: # and epoch>0:
+        if gpu==0 and ((not launch) or cfg.training.run_eval_at_launch): # and epoch>0:
             for eval_subset in ['train','val']:
                 vqa_acc = 0
                 cider = 0
@@ -616,7 +617,8 @@ def train_worker(gpu,cfg):
                     writer.add_scalar(f'Loss/{loss_name}/train',loss_value,step)
                 print(loss_str)
 
-            if gpu==0 and step%cfg.training.vis_step==0:
+            if gpu==0 and step%cfg.training.vis_step==0 and \
+                ((not launch) or cfg.training.run_vis_at_launch):
                 with torch.no_grad():
                     model.eval()
                     for subset in ['train','val']:
@@ -642,6 +644,7 @@ def train_worker(gpu,cfg):
                     }, os.path.join(cfg.ckpt_dir,'model.pth'))
 
             step += 1
+            launch=False
 
             if cfg.training.lr_linear_decay:
                 warmup_scheduler.step()
@@ -650,6 +653,8 @@ def train_worker(gpu,cfg):
 
         if not cfg.training.lr_linear_decay:
             lr_scheduler.step()
+
+        
 
 @hydra.main(config_path=f'../../configs',config_name=f"exp/gpv_biatt_box_text_coco")
 def main(cfg):
