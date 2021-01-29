@@ -8,11 +8,12 @@ python -m exp.gpv_biatt_box_text.train_distr \
     training.ckpt=null \
     training.freeze=True \
     training.frozen_epochs=5 \
-    training.frozen_batch_size=64 \
-    training.batch_size=120 \
+    training.frozen_batch_size=40 \
     training.run_eval_at_launch=False \
     training.run_vis_at_launch=False \
     training.num_workers=10 \
+    training.lr=5e-5 \
+    training.lr_backbone=5e-6 \
     losses.CaptionLoss.loss_wts.loss_caption=5e-2 \
     losses.VqaLoss.loss_wts.loss_vqa=1 \
     model.roi_head=False \
@@ -35,6 +36,8 @@ python -m exp.gpv_biatt_box_text.train_distr \
     training.run_eval_at_launch=False \
     training.run_vis_at_launch=False \
     training.num_workers=10 \
+    training.lr=5e-5 \
+    training.lr_backbone=5e-6 \
     losses.CaptionLoss.loss_wts.loss_caption=5e-2 \
     losses.VqaLoss.loss_wts.loss_vqa=1 \
     model.roi_head=False \
