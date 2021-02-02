@@ -1,7 +1,7 @@
 EXP_NAME=$1
 
 # eval det
-for task in "CocoCaptioning" #"CocoDetection" "CocoVqa" 
+for task in "CocoVqa" "CocoDetection" "CocoCaptioning" 
 do
     for subset in "val" "test"
     do
@@ -33,6 +33,8 @@ do
             eval.task=$task \
             eval.subset=$subset \
             eval.predict=True \
-            eval.num_eval_batches=null
+            eval.num_eval_batches=null \
+            model.roi_head=True \
+            model.detr_joiner.detr_dim=2304
     done
 done
