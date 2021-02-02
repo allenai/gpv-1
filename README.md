@@ -39,7 +39,7 @@ git clone --recurse-submodules git@github.com:allenai/gpv.git
 ```
 
 # Download data
-Download COCO images
+Download splits, COCO images, and detr ckpts (modify setup_data.sh to provide the detr ckpt to download from s3)
 ```bash
 bash setup_data.sh
 ```
