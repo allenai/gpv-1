@@ -470,7 +470,11 @@ def train_worker(gpu,cfg):
 
         step = ckpt['step']
         last_epoch = ckpt['epoch']
-        model_selection_metric = ckpt['model_selection_metric']
+        if model_selection_metric in ckpt:
+            model_selection_metric = ckpt['model_selection_metric']
+        else:
+            model_selection_metric = 0
+            
         # since a checkpoint is saved only if it is has the best metric so far
         best_metric = model_selection_metric
         best_epoch = last_epoch
