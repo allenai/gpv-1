@@ -87,13 +87,19 @@ losses:
     name: caption_criterion
     pad_idx: null
     loss_wts:
-      loss_caption: 1
+      loss_caption: 5e-2
   
   VqaLoss:
     name: vqa_criterion
     pad_idx: null
     loss_wts:
       loss_vqa: 1
+  
+  ClsLoss:
+    name: cls_criterion
+    pad_idx: null
+    loss_wts:
+      loss_cls: 1
 
   Localization:
     name: localization_criterion
@@ -111,7 +117,7 @@ losses:
 training:
   ckpt: null # ${ckpt_dir}/model.pth
   freeze: False # freeze Detr layers
-  frozen_epochs: 5
+  frozen_epochs: 10
   frozen_batch_size: 120
   num_epochs: 40 # will be set to frozen_epochs if freeze is True
   batch_size: 120 # will be set to frozen_batch_size if freeze is True
@@ -141,6 +147,7 @@ training:
     coco_vqa: 20000
     coco_cap: 10000
     coco_det: 10000
+    coco_cls: 1000
 
 eval:
   task: CocoVqa

@@ -21,6 +21,7 @@ from pytorch_transformers.optimization import WarmupLinearSchedule
 
 from .models.gpv import GPV
 from .models.losses import GPVCriterion
+from .metrics import *
 from exp.gpv_box_text import evaluators
 from datasets.coco_multitask_dataset import CocoMultitaskDataset
 from utils.bbox_utils import vis_bbox
@@ -133,204 +134,6 @@ def visualize(model,dataloader,cfg,step,subset):
     html_writer.close()
 
 
-def vqa_accuracy(model,dataloader,cfg):
-    samples = dataloader.dataset.samples
-    device = f'cuda:{cfg.gpu}'
-    word_to_idx = model.word_to_idx
-    idx_to_word = [None]*len(word_to_idx)
-    for word,idx in word_to_idx.items():
-        idx_to_word[idx] = word
-
-    model.eval()
-    
-    detokenizer = TreebankWordDetokenizer()
-    correct = 0
-    total = 0
-    end_eval = False
-    for data in tqdm(dataloader):
-        imgs, queries, targets = data
-        imgs = imgs.to(torch.device(device))
-        for t in targets:
-            for k,v in t.items():
-                if not isinstance(v,str):
-                    t[k] = v.cuda(device)
-        
-        answer_tokens,answer_token_ids = model.encode_answers(targets)
-        for i,t in enumerate(targets):
-            t['answer_token_ids'] = answer_token_ids[i,1:]
-
-        outputs = model(imgs,queries,answer_token_ids=None)
-
-        topk_answers = torch.topk(outputs['answer_logits'][-1],k=1,dim=-1)
-        topk_answer_ids = topk_answers.indices.detach().cpu().numpy()
-        pred_answers = model.token_ids_to_words(topk_answer_ids[:,:,0])
-        B = len(pred_answers)
-        for b in range(B):
-            if total >= cfg.training.num_val_samples['coco_vqa']:
-                end_eval = True
-                break
-            
-            pred_answer = detokenizer.detokenize([w for w in pred_answers[b] if 
-                w not in ['__stop__','__pad__']])
-            answers = samples[total]['all_answers']
-            if pred_answer in answers:
-                correctness = min(answers[pred_answer]/3,1)
-                correct += correctness
-                
-            total += 1
-        
-        if end_eval:
-            break
-
-    acc = round(correct / (total + 1e-6),4)
-    return acc
-
-
-def cap_metrics(model,dataloader,cfg):
-    samples = dataloader.dataset.samples
-    device = f'cuda:{cfg.gpu}'
-    word_to_idx = model.word_to_idx
-    idx_to_word = [None]*len(word_to_idx)
-    for word,idx in word_to_idx.items():
-        idx_to_word[idx] = word
-
-    model.eval()
-    
-    detokenizer = TreebankWordDetokenizer()
-    predictions = {}
-    total = 0
-    end_eval = False
-    for data in tqdm(dataloader):
-        imgs, queries, targets = data
-        imgs = imgs.to(torch.device(device))
-        for t in targets:
-            for k,v in t.items():
-                if not isinstance(v,str):
-                    t[k] = v.cuda(device)
-        
-        answer_tokens,answer_token_ids = model.encode_answers(targets)
-        for i,t in enumerate(targets):
-            t['answer_token_ids'] = answer_token_ids[i,1:]
-
-        outputs = model(imgs,queries,answer_token_ids=None)
-
-        topk_answers = torch.topk(outputs['answer_logits'][-1],k=1,dim=-1)
-        topk_answer_ids = topk_answers.indices.detach().cpu().numpy()
-        pred_answers = model.token_ids_to_words(topk_answer_ids[:,:,0])
-        B = len(pred_answers)
-        for b in range(B):
-            if total >= cfg.training.num_val_samples['coco_cap']:
-                end_eval = True
-                break
-            
-            pred_answer = detokenizer.detokenize([w for w in pred_answers[b] if 
-                w not in ['__stop__','__pad__']])
-            cap_id = samples[total]['cap_id']
-            predictions[str(cap_id)] = {'answer': pred_answer}
-                
-            total += 1
-        
-        if end_eval:
-            break
-
-    cap_evaluator = evaluators.CocoCaptioning(samples,predictions,None)
-    cap_evaluator.scorers = {
-        k:v for k,v in cap_evaluator.scorers.items() if k in ['Bleu','Cider']}
-    metrics = cap_evaluator.evaluate()
-    return metrics['scores']
-
-
-def update_samples_with_image_size(image_dir,samples):
-    for sample in tqdm(samples):
-        image_id = sample['image']['image_id']
-        image_subset = sample['image']['subset']
-        image_filename = os.path.join(
-            os.path.join(image_dir,image_subset),
-            'COCO_'+image_subset+'_'+str(image_id).zfill(12)+'.jpg')
-
-        W,H = imagesize.get(image_filename)
-        sample['image']['W'] = W
-        sample['image']['H'] = H
-    
-    return samples
-
-
-def det_metrics(model,dataloader,cfg):
-    samples = dataloader.dataset.samples
-    device = f'cuda:{cfg.gpu}'
-    word_to_idx = model.word_to_idx
-    idx_to_word = [None]*len(word_to_idx)
-    for word,idx in word_to_idx.items():
-        idx_to_word[idx] = word
-
-    model.eval()
-    
-    detokenizer = TreebankWordDetokenizer()
-    predictions = {}
-    total = 0
-    end_eval = False
-    eval_dir = os.path.join(cfg.exp_dir,'train_time_eval')
-    io.mkdir_if_not_exists(eval_dir)
-    boxes_h5py_path = os.path.join(
-        eval_dir,f'det_{dataloader.dataset.subset}_boxes.h5py')
-    boxes_h5py = h5py.File(boxes_h5py_path,'w')
-    for data in tqdm(dataloader):
-        imgs, queries, targets = data
-        imgs = imgs.to(torch.device(device))
-        for t in targets:
-            for k,v in t.items():
-                if not isinstance(v,str):
-                    t[k] = v.cuda(device)
-        
-        answer_tokens,answer_token_ids = model.encode_answers(targets)
-        for i,t in enumerate(targets):
-            t['answer_token_ids'] = answer_token_ids[i,1:]
-
-        outputs = model(imgs,queries,answer_token_ids=None)
-        relevance = outputs['pred_relevance_logits'].softmax(-1).detach().cpu().numpy()
-        pred_boxes = outputs['pred_boxes'].detach().cpu().numpy()
-        B = len(targets)
-        for b in range(B):
-            if total >= cfg.training.num_val_samples['coco_det']:
-                end_eval = True
-                break
-            
-            scores, boxes = zip(*sorted(zip(
-                relevance[b,:,0].tolist(),pred_boxes[b].tolist()),
-                key=lambda x: x[0],reverse=True))
-            scores = np.array(scores,dtype=np.float32)
-            boxes = np.array(boxes,dtype=np.float32)
-            sample_id = samples[total]['id']
-            grp = boxes_h5py.create_group(str(sample_id))
-            grp.create_dataset('boxes',data=boxes)
-            grp.create_dataset('relevance',data=scores)
-            predictions[str(sample_id)] = {
-                'answer': ''
-            }
-                
-            total += 1
-        
-        if end_eval:
-            break
-
-    boxes_h5py.close()
-
-    samples = update_samples_with_image_size(
-        cfg.task_configs.image_dir,
-        samples)
-
-    boxes_h5py = h5py.File(boxes_h5py_path,'r')
-    det_evaluator = evaluators.CocoDetection(samples,predictions,boxes_h5py)
-    metrics = det_evaluator.evaluate()
-    boxes_h5py.close()
-    os.remove(boxes_h5py_path)
-    APs = list(metrics['AP'].values())
-    print('Num class APs:',len(APs))
-    APs = [a for a in APs if not np.isnan(a)]
-    print('Num non-nan class APs:',len(APs))
-    return np.mean(APs)
-
-
 def freeze_detr_params(model,requires_grad=False):
     print(f'Setting requires grad to False for DETR params')
     for n,p in model.named_parameters():
@@ -386,12 +189,14 @@ def train_worker(gpu,cfg):
         word_to_idx = model.word_to_idx
         encode_answers = model.encode_answers
         token_ids_to_words = model.token_ids_to_words
+        vocab = model.vocab
         model = torch.nn.parallel.DistributedDataParallel(
             model, device_ids=[cfg.gpu], find_unused_parameters=True)
         model.encode_answers = encode_answers
         model.word_to_idx = word_to_idx
         model.token_ids_to_words = token_ids_to_words
         model.init_detr_params = init_detr_params
+        model.vocab = vocab
 
         # Create sampler for dataloader
         sampler = {'val': None}
@@ -523,6 +328,7 @@ def train_worker(gpu,cfg):
         if gpu==0 and ((not launch) or cfg.training.run_eval_at_launch): # and epoch>0:
             for eval_subset in ['train','val']:
                 vqa_acc = 0
+                cls_acc = 0
                 cider = 0
                 det_map = 0
                 for dataset_name in dataloaders[eval_subset].dataset.datasets:
@@ -541,6 +347,13 @@ def train_worker(gpu,cfg):
 
                         print(f'Dataset: {dataset_name} | Subset: {eval_subset} | Epoch: {epoch} | Acc: {vqa_acc}')
                         writer.add_scalar(f'vqa_acc/{eval_subset}',vqa_acc,step)
+
+                    elif dataset_name=='coco_cls':
+                        with torch.no_grad():
+                            cls_acc = cls_metrics(model,eval_dataloader,cfg)
+
+                        print(f'Dataset: {dataset_name} | Subset: {eval_subset} | Epoch: {epoch} | Acc: {cls_acc}')
+                        writer.add_scalar(f'cls_acc/{eval_subset}',cls_acc,step)
                     
                     elif dataset_name=='coco_cap':
                         with torch.no_grad():
@@ -565,7 +378,7 @@ def train_worker(gpu,cfg):
                         print(f'Eval not implemented for {dataset_name}')
                 
                 if eval_subset=='val':
-                    model_selection_metric = vqa_acc+cider+det_map
+                    model_selection_metric = vqa_acc+cider+det_map+cls_acc
 
         if cfg.multiprocessing_distributed:
             sampler['train'].set_epoch(epoch)
