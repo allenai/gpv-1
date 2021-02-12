@@ -109,7 +109,7 @@ class CocoClassification(CocoEval):
             total[sample['answer']] += 1
 
         eps = 1e-6
-        accuracy = {k:round(100*correct[k]/(eps+total[k]),2) for k in total}
+        accuracy = {k:round(correct[k]/(eps+total[k]),2) for k in total}
         metrics = {
             'correct': correct,
             'total': total,
