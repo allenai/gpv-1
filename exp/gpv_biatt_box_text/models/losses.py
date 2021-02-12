@@ -68,6 +68,21 @@ class VqaLoss(AnswerClassification):
         return {'loss_vqa': loss}
 
 
+class ClsLoss(AnswerClassification):
+    def forward(self,outputs,targets):
+        idx_filtered_targets = [(
+            i,t) for i,t in enumerate(targets) if 'answer' in t \
+                and t['task']=='CocoClassification']
+        if len(idx_filtered_targets)==0:
+            return {'loss_cls':None}
+
+        idxs, filtered_targets = zip(*idx_filtered_targets)
+        idxs = list(idxs)
+        filtered_logits = outputs['answer_logits'][:,idxs]
+        loss = self.compute_ce_loss(filtered_logits,filtered_targets)
+        return {'loss_cls': loss}
+
+
 class Localization(nn.Module):
     def __init__(self,cfg):
         super().__init__()
