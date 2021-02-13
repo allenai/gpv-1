@@ -219,7 +219,7 @@ def train_worker(gpu,cfg):
             collate_fn=detr_collate_fn,
             num_workers=cfg.workers,
             pin_memory=True,
-            shuffle=(sampler[subset] is None and subset is 'train'),
+            shuffle=(sampler[subset] is None), #(sampler[subset] is None and subset is 'train'),
             sampler=sampler[subset])
 
     device = f'cuda:{cfg.gpu}'
