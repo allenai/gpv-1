@@ -9,6 +9,7 @@ import torch
 
 from exp.gpv_box_text import evaluators
 from data.coco.synonyms import SYNONYMS
+import utils.io as io
 
 
 def vqa_accuracy(model,dataloader,cfg):
