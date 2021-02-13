@@ -1,7 +1,7 @@
 EXP_NAME=$1
 
 # eval det
-for task in "CocoVqa" "CocoDetection" "CocoCaptioning" 
+for task in "CocoClassification" "CocoVqa" "CocoDetection" "CocoCaptioning" 
 do
     for subset in "val" "test"
     do
@@ -16,6 +16,9 @@ do
         then
             max_text_len=20
             learning_datasets="cap"
+        elif [[ $task == "CocoClassification" ]]
+        then
+            learning_datasets="cls"
         else
             echo "learning dataset ${task} not found"
             exit 1
