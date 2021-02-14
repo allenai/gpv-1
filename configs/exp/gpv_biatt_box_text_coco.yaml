@@ -147,7 +147,7 @@ training:
     coco_vqa: 20000
     coco_cap: 10000
     coco_det: 10000
-    coco_cls: 1000
+    coco_cls: 10000
 
 eval:
   task: CocoVqa
