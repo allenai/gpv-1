@@ -2,7 +2,7 @@ BUCKET="s3://ai2-prior-gpv"
 GPV_DATA=$HOME/Data/gpv
 mkdir -p $GPV_DATA
 mkdir $GPV_DATA/learning_phase_data
-aws s3 cp $BUCKET/splits.zip $GPV_DATA/learning_phase_data/
+aws s3 cp $BUCKET/original_and_gpv_splits.zip $GPV_DATA/learning_phase_data/
 unzip $GPV_DATA/learning_phase_data/original_and_gpv_splits.zip -d $GPV_DATA/learning_phase_data/
 mkdir $GPV_DATA/detr
 aws s3 cp $BUCKET/detr/detr-r50-e632da11.pth $GPV_DATA/detr/
