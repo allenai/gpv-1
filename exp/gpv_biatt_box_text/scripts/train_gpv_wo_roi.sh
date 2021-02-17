@@ -23,7 +23,7 @@ python -m exp.gpv_biatt_box_text.train_distr \
     training.freeze=True \
     model.pretr_detr=$DETR_CKPT \
     model.roi_head=False \
-    model.detr_joiner.detr_dim=2048
+    model.detr_joiner.detr_dim=256
 
 ckpt="${LOCAL_EXP_DIR}/ckpts/model.pth"
 aws s3 cp $ckpt "${AWS_EXP_DIR}/ckpts/frozen_model.pth"
@@ -39,7 +39,7 @@ python -m exp.gpv_biatt_box_text.train_distr \
     training.freeze=False \
     model.pretr_detr=$DETR_CKPT \
     model.roi_head=False \
-    model.detr_joiner.detr_dim=2048
+    model.detr_joiner.detr_dim=256
 
 aws s3 cp $ckpt "${AWS_EXP_DIR}/ckpts/model.pth"
 
