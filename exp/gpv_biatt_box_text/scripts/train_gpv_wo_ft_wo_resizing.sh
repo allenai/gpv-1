@@ -21,6 +21,7 @@ python -m exp.gpv_biatt_box_text.train_distr \
     task_configs.data_split=$DATA_SPLIT \
     training.ckpt=null \
     training.freeze=True \
+    training.frozen_epochs=40 \
     model.pretr_detr=$DETR_CKPT \
     model.roi_head=True \
     model.detr_joiner.detr_dim=2304
