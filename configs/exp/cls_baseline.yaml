@@ -1,12 +1,19 @@
-exp_name: default
+exp_name: cls_baseline
 output_dir: /home/tanmayg/Data/gpv/coco_exp
 exp_dir: ${output_dir}/${exp_name}
 tb_dir: ${exp_dir}/tb_logs
 ckpt_dir: ${exp_dir}/ckpts
 
 gpu: 0
+num_nodes: 1
+ngpus_per_node: 4
+world_size: null  #computed dynamically as num_nodes*ngpus_per_node
+rank: 0
 workers: ${training.num_workers}
 batch_size: ${training.batch_size}
+dist_backend: nccl
+dist_url: 'tcp://localhost:10001'
+multiprocessing_distributed: True
 
 hydra:
   run:

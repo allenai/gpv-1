@@ -5,6 +5,8 @@ import hydra
 import torch
 import torch.nn as nn
 from torch.utils.tensorboard import SummaryWriter
+import torch.multiprocessing as mp
+import torch.distributed as dist
 from torchvision.models import resnet50
 import itertools
 import imagesize
@@ -17,23 +19,95 @@ from tqdm import tqdm
 from warmup_scheduler import GradualWarmupScheduler
 from pytorch_transformers.optimization import WarmupLinearSchedule
 
+from data.coco.synonyms import SYNONYMS
 from exp.gpv_box_text import evaluators
 from datasets.coco_multitask_dataset import CocoMultitaskDataset
 import utils.io as io
+
+class Classifier(nn.Module):
+    def __init__(self):
+        super().__init__()
+        self.cnn = resnet50(pretrained=True)
+        self.cnn.fc = nn.Linear(2048,80)
+        self.criterion = nn.CrossEntropyLoss(reduction='mean')
+        self.cls_to_idx = {l:i for i,l in enumerate(SYNONYMS.keys())}
+
+    def get_targets(self,targets):
+        tgts = [self.cls_to_idx[t['answer']] for t in targets]
+        return torch.LongTensor(tgts)
+
+    def forward(self,imgs,targets=None):
+        logits = self.cnn(imgs)
+
+        if targets is None:
+            return logits
+
+        tgts = self.get_targets(targets)
+        tgts = tgts.cuda(imgs.device)
+            
+        return self.criterion(logits,tgts)
+
+def cls_metric(model,dataloader,cfg):
+    device = f'cuda:{cfg.gpu}'
+    model.eval()
+    correct = 0
+    total = 0
+    for data in tqdm(dataloader):
+        if total >= cfg.training.num_val_samples['coco_cls']:
+            break 
+
+        imgs, queries, targets = data
+        imgs = imgs.to(torch.device(device))
+        for t in targets:
+            for k,v in t.items():
+                if not isinstance(v,str):
+                    t[k] = v.cuda(device)
+        
+        imgs = imgs.tensors
+
+        logits = model(imgs)
+        tgts = model.get_targets(targets).cuda(imgs.device)
+        preds = torch.argmax(logits,1)
+        correct += torch.sum(tgts==preds).item()
+        total += tgts.size(0)
+    
+    accuracy = round(correct / (total+1e-6),4)
+    return accuracy
+
 
 def train_worker(gpu,cfg):
     cfg.gpu = gpu
     if cfg.gpu is not None:
         print("Use GPU: {} for training".format(cfg.gpu))
 
-    model=resnet50()
-    model.fc = nn.Linear(2048,80)
-    model.cuda(cfg.gpu)
+    model=Classifier()
+    if cfg.gpu==0:
+        print(model)
 
     datasets = {
         'train': CocoMultitaskDataset(cfg.learning_datasets,cfg.task_configs,'train'),
         'val': CocoMultitaskDataset(cfg.learning_datasets,cfg.task_configs,'val')
     }
+
+    if cfg.multiprocessing_distributed:
+        cfg.rank = cfg.rank * cfg.ngpus_per_node + cfg.gpu
+        dist.init_process_group(
+            backend=cfg.dist_backend, 
+            init_method=cfg.dist_url,
+            world_size=cfg.world_size,
+            rank=cfg.rank)
+
+        torch.cuda.set_device(cfg.gpu)
+        model.cuda(cfg.gpu)
+        get_targets = model.get_targets
+        model = torch.nn.parallel.DistributedDataParallel(
+            model, device_ids=[cfg.gpu], find_unused_parameters=True)
+        model.get_targets = get_targets
+
+        # Create sampler for dataloader
+        sampler = {'val': None}
+        sampler['train'] = torch.utils.data.distributed.DistributedSampler(
+            datasets['train'],shuffle=True)
 
     dataloaders = {}
     for subset,dataset in datasets.items():
@@ -43,9 +117,13 @@ def train_worker(gpu,cfg):
             collate_fn=detr_collate_fn,
             num_workers=cfg.workers,
             pin_memory=True,
-            shuffle=(subset=='train'))
+            shuffle=(sampler[subset] is None), #(sampler[subset] is None and subset is 'train'),
+            sampler=sampler[subset])
 
-    writer = SummaryWriter(log_dir=cfg.tb_dir)
+    device = f'cuda:{cfg.gpu}'
+    if gpu==0:
+        writer = SummaryWriter(log_dir=cfg.tb_dir)
+    
     optimizer = torch.optim.AdamW(
         model.parameters(),
         lr=cfg.training.lr,
@@ -120,6 +198,30 @@ def train_worker(gpu,cfg):
 
     launch = True
     for epoch in range(last_epoch+1,training_epochs):
+        if gpu==0:
+            for eval_subset in ['train','val']:
+                cls_acc = 0
+                print(f'Evaluating on coco_cls {eval_subset}')
+                eval_dataset = dataloaders[eval_subset].dataset.datasets['coco_cls']
+                eval_dataloader = DataLoader(
+                    eval_dataset,
+                    batch_size=cfg.batch_size,
+                    num_workers=cfg.workers,
+                    shuffle=False,
+                    collate_fn=detr_collate_fn)
+                
+                with torch.no_grad():
+                    cls_acc = cls_metric(model,eval_dataloader,cfg)
+
+                print(f'Dataset: coco_cls | Subset: {eval_subset} | Epoch: {epoch} | Acc: {cls_acc}')
+                writer.add_scalar(f'cls_acc/{eval_subset}',cls_acc,step)
+        
+                if eval_subset=='val':
+                    model_selection_metric = cls_acc
+
+        if cfg.multiprocessing_distributed:
+            sampler['train'].set_epoch(epoch)
+
         print(gpu,len(dataloaders['train']))
         for it,data in enumerate(dataloaders['train']):
             imgs, queries, targets = data
@@ -131,9 +233,63 @@ def train_worker(gpu,cfg):
 
             model.train()
             imgs = imgs.tensors
-            import ipdb; ipdb.set_trace()
-            y = model(imgs)
-            import ipdb; ipdb.set_trace()
+
+            loss = model(imgs,targets)
+
+            optimizer.zero_grad()
+            loss.backward()
+            optimizer.step()
+
+            if gpu==0 and step%cfg.training.log_step==0:
+                loss_str = f'Epoch: {epoch} | Iter: {it} | Step: {step} | '
+                if cfg.training.lr_linear_decay:
+                    loss_str += f' LR: {warmup_scheduler.get_last_lr()[0]} | '
+
+                loss_value = round(loss.item(),4)
+                loss_str += f'Loss: {loss_value} | '
+                writer.add_scalar(f'Loss/train',loss_value,step)
+                writer.add_scalar('Epoch',epoch,step)
+                writer.add_scalar('Iter',it,step)
+                writer.add_scalar('Step',step,step)
+                writer.add_scalar('Best Epoch',best_epoch,step)
+                for j,group_lr in enumerate(get_lrs(optimizer)):
+                    writer.add_scalar(
+                        f'Lr/optimizer/group_{j}',
+                        group_lr,
+                        step)
+                        
+                print(loss_str)
+            
+            if gpu==0 and step%(10*cfg.training.log_step)==0:
+                print('Exp:',cfg.exp_name)
+                    
+            if gpu==0 and step%cfg.training.ckpt_step==0:
+                if model_selection_metric > best_metric:
+                    print('Saving checkpoint ...')
+                    best_metric = model_selection_metric
+                    best_epoch = epoch
+                    torch.save({
+                        'model': model.state_dict(),
+                        'optimizer': optimizer.state_dict(),
+                        'epoch': epoch,
+                        'iter': it,
+                        'step': step,
+                        'lr': lr_scheduler.get_last_lr(),
+                        'model_selection_metric': model_selection_metric,
+                        'warmup_scheduler': warmup_scheduler.state_dict() if cfg.training.lr_linear_decay else None,
+                    }, os.path.join(cfg.ckpt_dir,'model.pth'))
+
+            step += 1
+            launch=False
+
+            if cfg.training.lr_linear_decay:
+                warmup_scheduler.step()
+            elif cfg.training.lr_warmup is True and epoch==0 and it < warmup_iters:
+                warmup_scheduler.step(it)
+
+        if not cfg.training.lr_linear_decay:
+            lr_scheduler.step()
+
 
 @hydra.main(config_path=f'../../configs',config_name=f"exp/cls_baseline")
 def main(cfg):
@@ -142,7 +298,15 @@ def main(cfg):
     if cfg.training.freeze:
         cfg.training.batch_size = cfg.training.frozen_batch_size
         cfg.batch_size = cfg.training.frozen_batch_size
-    train_worker(cfg.gpu,cfg)
+    
+    if cfg.multiprocessing_distributed:
+        cfg.world_size = cfg.ngpus_per_node * cfg.num_nodes
+        cfg.batch_size = int(cfg.batch_size / cfg.ngpus_per_node)
+        cfg.workers = int(
+            (cfg.workers + cfg.ngpus_per_node - 1) / cfg.ngpus_per_node)
+        mp.spawn(train_worker, nprocs=cfg.ngpus_per_node, args=(cfg,))
+    else:
+        train_worker(cfg.gpu,cfg)
 
 if __name__=='__main__':
     main()
