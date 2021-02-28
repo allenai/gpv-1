@@ -54,3 +54,12 @@ training:
   run_eval_at_launch: True
   num_val_samples: 
     coco_cls: 10000
+
+eval:
+  task: CocoClassification
+  ckpt: ${exp_dir}/ckpts/model.pth
+  batch_size: 20
+  num_workers: 20
+  subset: val
+  predict: True
+  num_eval_batches: null # set to null to evaluate on full dataset

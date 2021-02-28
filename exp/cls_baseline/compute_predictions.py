@@ -131,7 +131,7 @@ def main(cfg):
     samples = dataloader.dataset.datasets[task_name].samples
 
     if cfg.eval.predict is True:
-        model = Classifier(cfg.model)
+        model = Classifier()
         model.cuda(cfg.gpu)
         loc = 'cuda:{}'.format(cfg.gpu)
         loaded_dict = torch.load(cfg.eval.ckpt, map_location=loc)['model']
@@ -148,16 +148,13 @@ def main(cfg):
     predictions = io.load_json_object(os.path.join(
         eval_dir,f'{cfg.eval.task}_{cfg.eval.subset}_predictions.json'))
 
-    boxes_h5py = h5py.File(os.path.join(
-        eval_dir,f'{cfg.eval.task}_{cfg.eval.subset}_boxes.h5py'),'r')
-
     if cfg.eval.task=='CocoDetection':
         samples = update_samples_with_image_size(
             cfg.task_configs.image_dir,
             samples)
     
     Evaluator = getattr(evaluators,cfg.eval.task)
-    evaluator = Evaluator(samples,predictions,boxes_h5py)
+    evaluator = Evaluator(samples,predictions,None)
     metrics = {}
     for novelty in ['everything','seen_concepts','held_out_concepts']:
         metrics[novelty] = evaluator.evaluate(novelty)
@@ -165,8 +162,6 @@ def main(cfg):
     io.dump_json_object(
         metrics,
         os.path.join(eval_dir,f'{cfg.eval.task}_{cfg.eval.subset}_metrics.json'))
-
-    boxes_h5py.close()
 
 if __name__=='__main__':
     main()
