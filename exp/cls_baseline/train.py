@@ -47,6 +47,7 @@ class Classifier(nn.Module):
             
         return self.criterion(logits,tgts)
 
+
 def cls_metric(model,dataloader,cfg):
     device = f'cuda:{cfg.gpu}'
     model.eval()
@@ -73,6 +74,14 @@ def cls_metric(model,dataloader,cfg):
     
     accuracy = round(correct / (total+1e-6),4)
     return accuracy
+
+
+def get_lrs(optimizer):
+    lrs = []
+    for param_group in optimizer.param_groups:
+        lrs.append(param_group['lr'])
+    
+    return lrs
 
 
 def train_worker(gpu,cfg):
