@@ -20,6 +20,7 @@ coco_captioning:
     val: null
     test: null
   feats: ${task_configs.coco_feats}
+  data_split: ${task_configs.data_split}
 
 coco_detection:
   image_dir: ${task_configs.image_dir}
@@ -55,8 +56,11 @@ coco_vqa:
     train: /home/tanmayg/Data/gpv/learning_phase_data/vqa/${task_configs.data_split}/train.json
     val: /home/tanmayg/Data/gpv/learning_phase_data/vqa/${task_configs.data_split}/val.json
     test: /home/tanmayg/Data/gpv/learning_phase_data/vqa/${task_configs.data_split}/test.json
+    testdev: /home/tanmayg/Data/gpv/learning_phase_data/vqa/${task_configs.data_split}/testdev.json
   max_samples:
     train: null
     val: null
     test: null
+    testdev: null
   feats: ${task_configs.coco_feats}
+  data_split: ${task_configs.data_split}
