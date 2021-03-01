@@ -31,7 +31,7 @@ class GenericCocoDataset(Dataset):
                 T.ToTensor(),
                 T.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225])
             ])
-        if subset in ['val','test']:
+        if subset in ['val','test','testdev']:
             self.transforms = T.Compose([
                 T.ToPILImage(mode='RGB'),
                 T.ToTensor(),

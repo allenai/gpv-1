@@ -87,6 +87,42 @@ class CocoVqaTestOriginalSplitDataset(CocoVqa):
         sample = self.samples[i]
 
         if self.cfg.read_image is True:
+            err_msg = 'only supports original split test and test-dev 2015'
+            assert(sample['image']['subset'] in ['test2015','test-dev2015']), err_msg
+            image_subset = 'test2015' #sample['image']['subset']
+            image_id = sample['image']['image_id']
+            img, original_image_size = self.read_image(
+                image_subset,image_id)
+            img = (255*img).astype(np.uint8)
+            img = self.transforms(img)
+        
+        query = sample['query']
+        return img, query
+
+
+class CocoCapTestOriginalSplitDataset(CocoCaptioning):
+    def __init__(self,cfg,subset):
+        err_msg = 'Only original_split allowed'
+        assert(cfg.data_split=='original_split'), err_msg
+        err_msg = 'Only test allowed'
+        assert(subset in ['test','val']), err_msg
+        super().__init__(cfg,subset)
+        if subset=='val':
+            self.samples = self.deduplicate_samples(self.samples)
+    
+    def deduplicate_samples(self,samples):
+        deduped_samples = {}
+        for sample in self.samples:
+            img_id = sample['image']['image_id']
+            deduped_samples[img_id] = sample
+
+        return list(deduped_samples.values())
+
+
+    def __getitem__(self,i):
+        sample = self.samples[i]
+
+        if self.cfg.read_image is True:
             image_subset = sample['image']['subset']
             image_id = sample['image']['image_id']
             img, original_image_size = self.read_image(

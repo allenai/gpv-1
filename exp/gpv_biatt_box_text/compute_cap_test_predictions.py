@@ -20,7 +20,7 @@ from data.coco.synonyms import SYNONYMS
 import exp.gpv_box_text.evaluators as evaluators
 from .models.gpv import GPV
 from .models.losses import GPVCriterion
-from datasets.coco_datasets import CocoVqaTestOriginalSplitDataset
+from datasets.coco_datasets import CocoCapTestOriginalSplitDataset
 from utils.bbox_utils import vis_bbox
 from utils.detr_misc import collate_fn
 import utils.io as io
@@ -55,8 +55,8 @@ def make_predictions(model,dataloader,samples,cfg):
             answer = detokenizer.detokenize(answer)
 
             result = {
-                'question_id': samples[cnt]['question_id'],
-                'answer': answer
+                'image_id': samples[cnt]['image']['image_id'],
+                'caption': answer
             }
             results.append(result)
             cnt += 1
@@ -89,8 +89,8 @@ def main(cfg):
     io.mkdir_if_not_exists(eval_dir,recursive=True)
     print(cfg.pretty())
     print(cfg.exp_dir)
-    dataset = CocoVqaTestOriginalSplitDataset(
-        cfg.task_configs.coco_vqa,cfg.eval.subset)
+    dataset = CocoCapTestOriginalSplitDataset(
+        cfg.task_configs.coco_captioning,cfg.eval.subset)
     dataloader = dataset.get_dataloader(
         batch_size=cfg.eval.batch_size,
         num_workers=cfg.eval.num_workers,
