@@ -195,6 +195,27 @@ class CocoClassification(GenericCocoDataset):
         else:
             return query,targets
 
+
+class RefCocop(GenericCocoDataset):
+    def __init__(self,cfg,subset):
+        super().__init__(cfg,subset)
+        if 'train' in subset:
+            self.transforms = T.Compose([
+                T.ToPILImage(mode='RGB'),
+                T.RandomApply([
+                    T.ColorJitter(0.4, 0.4, 0.4, 0.1)
+                ], p=0.8),
+                T.RandomGrayscale(p=0.2),
+                T.ToTensor(),
+                T.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225])
+            ])
+
+    def __getitem__(self,i):
+        outputs = super().__getitem__(i)
+        outputs[-1]['task'] = 'RefCocop'
+        return outputs
+
+        
 @hydra.main(config_path="../configs",config_name="test/coco_datasets")
 def test_dataset(cfg):
     print(cfg.pretty())

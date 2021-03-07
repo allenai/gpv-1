@@ -64,3 +64,17 @@ coco_vqa:
     testdev: null
   feats: ${task_configs.coco_feats}
   data_split: ${task_configs.data_split}
+
+refcocop:
+  image_dir: ${task_configs.image_dir}
+  image_size: ${task_configs.image_size}
+  read_image: ${task_configs.read_image}
+  train_percent: 100
+  samples:
+    train: /home/tanmayg/Data/gpv/learning_phase_data/refcocop/train_${task_configs.refcocop.train_percent}.json
+    val: /home/tanmayg/Data/gpv/learning_phase_data/refcocop/val.json
+    test: /home/tanmayg/Data/gpv/learning_phase_data/refcocop/test.json
+  max_samples:
+    train: null
+    val: null
+    test: null

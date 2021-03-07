@@ -10,19 +10,19 @@ hydra:
 
 defaults:
   - task: coco_learning_tasks
+  - learning_datasets: refcocop
+# learning_datasets:
+#   CocoCaptioning:
+#     task_config: coco_captioning
+#     name: coco_cap
+#   CocoDetection:
+#     task_config: coco_detection
+#     name: coco_det
+#   CocoClassification:
+#     task_config: coco_classification
+#     name: coco_cls
+#   CocoVqa:
+#     task_config: coco_vqa
+#     name: coco_vqa
 
-learning_datasets:
-  CocoCaptioning:
-    task_config: coco_captioning
-    name: coco_cap
-  CocoDetection:
-    task_config: coco_detection
-    name: coco_det
-  CocoClassification:
-    task_config: coco_classification
-    name: coco_cls
-  CocoVqa:
-    task_config: coco_vqa
-    name: coco_vqa
-
-dataset_to_test: CocoCaptioning
+dataset_to_test: RefCocop

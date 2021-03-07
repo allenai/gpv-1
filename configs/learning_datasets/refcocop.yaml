@@ -1,0 +1,4 @@
+learning_datasets:
+  RefCocop:
+    task_config: refcocop
+    name: refcocop
