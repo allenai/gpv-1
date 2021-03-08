@@ -283,11 +283,12 @@ def det_metrics(model,dataloader,cfg):
     metrics = det_evaluator.evaluate()
     boxes_h5py.close()
     os.remove(boxes_h5py_path)
-    APs = list(metrics['AP'].values())
-    print('Num class APs:',len(APs))
-    APs = [a for a in APs if not np.isnan(a)]
-    print('Num non-nan class APs:',len(APs))
-    return np.mean(APs)
+    return metrics['mAP']
+    # APs = list(metrics['AP'].values())
+    # print('Num class APs:',len(APs))
+    # APs = [a for a in APs if not np.isnan(a)]
+    # print('Num non-nan class APs:',len(APs))
+    # return np.mean(APs)
 
 
 def refexp_metrics(model,dataloader,cfg):
@@ -359,8 +360,4 @@ def refexp_metrics(model,dataloader,cfg):
     metrics = refexp_evaluator.evaluate()
     boxes_h5py.close()
     os.remove(boxes_h5py_path)
-    APs = list(metrics['AP'].values())
-    print('Num class APs:',len(APs))
-    APs = [a for a in APs if not np.isnan(a)]
-    print('Num non-nan class APs:',len(APs))
-    return np.mean(APs)
+    return metrics['mAP']
