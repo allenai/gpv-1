@@ -288,3 +288,79 @@ def det_metrics(model,dataloader,cfg):
     APs = [a for a in APs if not np.isnan(a)]
     print('Num non-nan class APs:',len(APs))
     return np.mean(APs)
+
+
+def refexp_metrics(model,dataloader,cfg):
+    samples = dataloader.dataset.samples
+    device = f'cuda:{cfg.gpu}'
+    word_to_idx = model.word_to_idx
+    idx_to_word = [None]*len(word_to_idx)
+    for word,idx in word_to_idx.items():
+        idx_to_word[idx] = word
+
+    model.eval()
+    
+    detokenizer = TreebankWordDetokenizer()
+    predictions = {}
+    total = 0
+    end_eval = False
+    eval_dir = os.path.join(cfg.exp_dir,'train_time_eval')
+    io.mkdir_if_not_exists(eval_dir)
+    boxes_h5py_path = os.path.join(
+        eval_dir,f'det_{dataloader.dataset.subset}_boxes.h5py')
+    boxes_h5py = h5py.File(boxes_h5py_path,'w')
+    for data in tqdm(dataloader):
+        imgs, queries, targets = data
+        imgs = imgs.to(torch.device(device))
+        for t in targets:
+            for k,v in t.items():
+                if not isinstance(v,str):
+                    t[k] = v.cuda(device)
+        
+        answer_tokens,answer_token_ids = model.encode_answers(targets)
+        for i,t in enumerate(targets):
+            t['answer_token_ids'] = answer_token_ids[i,1:]
+
+        outputs = model(imgs,queries,answer_token_ids=None)
+        relevance = outputs['pred_relevance_logits'].softmax(-1).detach().cpu().numpy()
+        pred_boxes = outputs['pred_boxes'].detach().cpu().numpy()
+        B = len(targets)
+        for b in range(B):
+            if total >= cfg.training.num_val_samples['refcocop']:
+                end_eval = True
+                break
+            
+            scores, boxes = zip(*sorted(zip(
+                relevance[b,:,0].tolist(),pred_boxes[b].tolist()),
+                key=lambda x: x[0],reverse=True))
+            scores = np.array(scores,dtype=np.float32)
+            boxes = np.array(boxes,dtype=np.float32)
+            sample_id = samples[total]['sent_id']
+            grp = boxes_h5py.create_group(str(sample_id))
+            grp.create_dataset('boxes',data=boxes)
+            grp.create_dataset('relevance',data=scores)
+            predictions[str(sample_id)] = {
+                'answer': ''
+            }
+                
+            total += 1
+        
+        if end_eval:
+            break
+
+    boxes_h5py.close()
+
+    samples = update_samples_with_image_size(
+        cfg.task_configs.image_dir,
+        samples)
+
+    boxes_h5py = h5py.File(boxes_h5py_path,'r')
+    refexp_evaluator = evaluators.RefCocop(samples,predictions,boxes_h5py)
+    metrics = refexp_evaluator.evaluate()
+    boxes_h5py.close()
+    os.remove(boxes_h5py_path)
+    APs = list(metrics['AP'].values())
+    print('Num class APs:',len(APs))
+    APs = [a for a in APs if not np.isnan(a)]
+    print('Num non-nan class APs:',len(APs))
+    return np.mean(APs)

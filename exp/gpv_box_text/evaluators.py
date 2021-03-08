@@ -9,7 +9,8 @@ task_to_id = {
     'CocoVqa': 'question_id',
     'CocoClassification': 'id',
     'CocoCaptioning': 'cap_id',
-    'CocoDetection': 'id'
+    'CocoDetection': 'id',
+    'RefCocop': 'sent_id',
 }
 
 
@@ -279,6 +280,83 @@ class CocoDetection(CocoEval):
 
         return metrics
 
+class RefCocop(CocoEval):
+    def __init__(self,samples,predictions,boxes,task='RefCocop'):
+        super().__init__(samples,predictions,boxes,task)
+
+    def evaluate(self,novelty='everything',iou_thresh=0.5):
+        absent = 0
+        correct = Counter()
+        total = Counter()
+        APs = []
+        eval_engine = det_evaluator.Evaluator()
+        for k,sample in tqdm(self.samples.items()):
+            if novelty is not 'everything' and \
+                self.sample_novelty(sample)!=novelty:
+                continue
+                
+            if k not in self.predictions:
+                absent += 1
+                continue
+
+            scores = self.boxes[k]['relevance'][()] # probs
+            pred_boxes = self.boxes[k]['boxes'][()] # scaled 0 to 1 (cx,cy,w,h)
+            # convert to (x,y,w,h)
+            pred_boxes[:,0] = pred_boxes[:,0] - 0.5*pred_boxes[:,2]
+            pred_boxes[:,1] = pred_boxes[:,1] - 0.5*pred_boxes[:,3]
+            gt_boxes = np.array(sample['boxes']) # absolute coord (x,y,w,h)
+            # convert to relative coordinates
+            W = sample['image']['W']
+            H = sample['image']['H']
+            gt_boxes[:,0] = gt_boxes[:,0]/W
+            gt_boxes[:,1] = gt_boxes[:,1]/H
+            gt_boxes[:,2] = gt_boxes[:,2]/W
+            gt_boxes[:,3] = gt_boxes[:,3]/H
+            B = pred_boxes.shape[0]
+            all_boxes = det_evaluator.BoundingBoxes()
+            for b in range(B):
+                x,y,w,h=pred_boxes[b]
+                all_boxes.addBoundingBox(det_evaluator.BoundingBox(
+                    imageName=sample['image']['image_id'],
+                    classId='query',
+                    x=x,
+                    y=y,
+                    w=w,
+                    h=h,
+                    typeCoordinates=det_evaluator.CoordinatesType.Relative,
+                    imgSize=(W,H),
+                    bbType=det_evaluator.BBType.Detected,
+                    classConfidence=scores[b],
+                    format=det_evaluator.BBFormat.XYWH))
+
+            B = gt_boxes.shape[0]
+            for b in range(B):
+                x,y,w,h = gt_boxes[b]
+                all_boxes.addBoundingBox(det_evaluator.BoundingBox(
+                    imageName=sample['image']['image_id'],
+                    classId='query',
+                    x=x,
+                    y=y,
+                    w=w,
+                    h=h,
+                    typeCoordinates=det_evaluator.CoordinatesType.Relative,
+                    imgSize=(W,H),
+                    bbType=det_evaluator.BBType.GroundTruth,
+                    format=det_evaluator.BBFormat.XYWH))
+            
+            det_metrics = eval_engine.GetPascalVOCMetrics(all_boxes,iou_thresh)
+            APs.append(det_metrics[0]['AP'])
+            total['all'] += 1
+
+        mAP = np.mean(APs)
+        
+        metrics = {
+            'absent': absent,
+            'total': total,
+            'mAP': mAP
+        }
+
+        return metrics
 
 # class CocoDetection(CocoEval):
 #     def __init__(self,samples,predictions,boxes,task='CocoDetection'):
