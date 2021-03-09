@@ -1,10 +1,9 @@
 LEARNING_DATASETS="refcocop"
-DATA_SPLIT=$1
-NGPUS=$2
-DISTURL=$3
-PRETR_EXP_NAME=$4
-TRAIN_PERCENT=$5
-EXP_NAME="gpv_${LEARNING_DATASETS}_${DATA_SPLIT}_ft_refcocop_${TRAIN_PERCENT}"
+NGPUS=$1
+DISTURL=$2
+PRETR_EXP_NAME=$3
+TRAIN_PERCENT=$4
+EXP_NAME="gpv_${LEARNING_DATASETS}_perc_${TRAIN_PERCENT}_ft_from_${PRETR_EXP_NAME}"
 LOCAL_EXP_DIR="/home/tanmayg/Data/gpv/coco_exp/${EXP_NAME}"
 AWS_EXP_DIR="s3://ai2-prior-gpv/paper_exps_detr_wo_resizing/refcocop/${EXP_NAME}"
 PRETR_EXP_DIR="/home/tanmayg/Data/gpv/coco_exp/${PRETR_EXP_NAME}"
@@ -24,7 +23,6 @@ python -m exp.gpv_biatt_box_text.finetune_distr \
     multiprocessing_distributed=True \
     dist_url="tcp://localhost:${DISTURL}" \
     learning_datasets=$LEARNING_DATASETS \
-    task_configs.data_split=$DATA_SPLIT \
     task_configs.refcocop.train_percent=$TRAIN_PERCENT \
     training.ckpt=$ckpt \
     training.freeze=False \

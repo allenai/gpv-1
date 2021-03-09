@@ -178,7 +178,7 @@ def main(cfg):
     boxes_h5py = h5py.File(os.path.join(
         eval_dir,f'{cfg.eval.task}_{cfg.eval.subset}_boxes.h5py'),'r')
 
-    if cfg.eval.task=='CocoDetection':
+    if cfg.eval.task in ['CocoDetection','RefCocop']:
         samples = update_samples_with_image_size(
             cfg.task_configs.image_dir,
             samples)
@@ -186,8 +186,11 @@ def main(cfg):
     Evaluator = getattr(evaluators,cfg.eval.task)
     evaluator = Evaluator(samples,predictions,boxes_h5py)
     metrics = {}
-    for novelty in ['everything','seen_concepts','held_out_concepts']:
-        metrics[novelty] = evaluator.evaluate(novelty)
+    if cfg.eval.task=='RefCocop':
+        metrics['everything'] = evaluator.evaluate()
+    else:
+        for novelty in ['everything','seen_concepts','held_out_concepts']:
+            metrics[novelty] = evaluator.evaluate(novelty)
 
     io.dump_json_object(
         metrics,

@@ -9,6 +9,9 @@ do
     if [[ $task == "CocoDetection" ]]
     then
         learning_datasets="det"
+    elif [[ $task == "RefCocop" ]]
+    then
+        learning_datasets="refcocop"
     elif [[ $task == "CocoVqa" ]]
     then
         learning_datasets="vqa"

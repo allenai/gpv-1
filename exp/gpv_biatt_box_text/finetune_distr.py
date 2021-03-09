@@ -379,8 +379,8 @@ def train_worker(gpu,cfg):
                         with torch.no_grad():
                             refexp_map = refexp_metrics(model,eval_dataloader,cfg)
 
-                        print(f'Dataset: {dataset_name} | Subset: {eval_subset} | Epoch: {epoch} | mAP: {det_map}')
-                        writer.add_scalar(f'refexp_map/{eval_subset}',det_map,step)
+                        print(f'Dataset: {dataset_name} | Subset: {eval_subset} | Epoch: {epoch} | mAP: {refexp_map}')
+                        writer.add_scalar(f'refexp_map/{eval_subset}',refexp_map,step)
                     
                     else:
                         print(f'Eval not implemented for {dataset_name}')
