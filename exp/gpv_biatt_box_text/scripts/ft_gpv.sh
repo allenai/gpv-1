@@ -32,3 +32,11 @@ python -m exp.gpv_biatt_box_text.finetune_distr \
 
 ckpt="${LOCAL_EXP_DIR}/ckpts/model.pth"
 aws s3 cp $ckpt "${AWS_EXP_DIR}/ckpts/model.pth"
+
+tb_logs="${LOCAL_EXP_DIR}/tb_logs"
+aws s3 cp $tb_logs "${AWS_EXP_DIR}/tb_logs" --recursive
+
+bash exp/gpv_biatt_box_text/scripts/eval_w_refexp.sh $EXP_NAME
+
+eval_dir="${LOCAL_EXP_DIR}/eval"
+aws s3 cp $eval_dir "${AWS_EXP_DIR}/eval" --recursive
