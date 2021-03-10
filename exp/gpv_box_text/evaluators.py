@@ -136,10 +136,10 @@ class CocoCaptioning(CocoEval):
                 #[w.lower() for w in self.tokenizer.tokenize(sample['answer'])])
         self.scorers = {
             'Bleu': Bleu(4),
-            'Meteor': Meteor(),
-            'Rouge': Rouge(),
+            # 'Meteor': Meteor(),
+            # 'Rouge': Rouge(),
             'Cider': Cider(),
-            'Spice': Spice()
+            # 'Spice': Spice()
         }
 
         
