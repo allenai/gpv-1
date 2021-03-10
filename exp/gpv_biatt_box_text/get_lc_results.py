@@ -14,7 +14,12 @@ def main(cfg):
         json_path = os.path.join(
             cfg.results_dir,
             f'{task}_{cfg.subset}_metrics.json')
-        metrics = io.load_json_object(json_path)
+        if os.path.exists(json_path):
+            metrics = io.load_json_object(json_path)
+        else:
+            perf[task]=-1
+            continue
+            
         metric = 0
         if task=='RefCocop':
             metric = round(100*metrics['everything']['mAP'],2)
@@ -27,8 +32,8 @@ def main(cfg):
         elif task=='CocoClassification':
             metric = round(100*metrics['everything']['accuracy']['all'],2)
         
-
         perf[task]=metric
+        
     print(json.dumps(perf,indent=4))
 
 if __name__=='__main__':
