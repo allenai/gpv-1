@@ -1,0 +1,14 @@
+exp_name: default
+output_dir: /home/tanmayg/Data/gpv/coco_exp
+exp_dir: ${output_dir}/${exp_name}
+eval_dir: ${output_dir}/${exp_name}/eval
+vis_dir: ${output_dir}/${exp_name}/vis
+subset: test
+task_to_vis: CocoDetection
+
+defaults:
+  - task: coco_learning_tasks
+
+hydra:
+  run:
+    dir: ${output_dir}/${exp_name}/vis
