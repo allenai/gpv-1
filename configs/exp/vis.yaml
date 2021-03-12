@@ -2,9 +2,16 @@ exp_name: default
 output_dir: /home/tanmayg/Data/gpv/coco_exp
 exp_dir: ${output_dir}/${exp_name}
 eval_dir: ${output_dir}/${exp_name}/eval
-vis_dir: ${output_dir}/${exp_name}/vis
+seed: 0
+vis_dir: ${output_dir}/${exp_name}/vis_${seed}
 subset: test
-task_to_vis: CocoDetection
+task_to_vis: 
+  - CocoVqa
+  - CocoCaptioning
+  - CocoDetection
+  - CocoClassification
+
+index: /home/tanmayg/Data/gpv/coco_exp/create_index/index.json
 
 defaults:
   - task: coco_learning_tasks

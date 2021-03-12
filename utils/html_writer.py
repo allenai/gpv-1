@@ -16,6 +16,10 @@ class HtmlWriter():
     def image_tag(self, image_path, height=240, width=320):
         return """<img src="{}" alt="{}" height={} width={}>""".format(
             image_path,image_path,height,width)
+    
+    def image_tag_original_size(self, image_path):
+        return """<img src="{}" alt="{}">""".format(
+            image_path,image_path,height,width)
 
     def video_tag(self, video_path, height=240, width=320, autoplay=True):
         if autoplay:
