@@ -148,7 +148,7 @@ training:
     coco_cap: 10000
     coco_det: 10000
     coco_cls: 10000
-    refcocop: 10000
+    refcocop: 2000
 
 eval:
   task: RefCocop
