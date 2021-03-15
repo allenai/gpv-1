@@ -26,6 +26,8 @@ python -m exp.gpv_biatt_box_text.finetune_distr \
     task_configs.refcocop.train_percent=$TRAIN_PERCENT \
     training.ckpt=$ckpt \
     training.freeze=False \
+    training.num_epochs=200 \
+    training.eval_every=5 \
     model.pretr_detr=$DETR_CKPT \
     model.roi_head=True \
     model.detr_joiner.detr_dim=2304
@@ -36,7 +38,7 @@ aws s3 cp $ckpt "${AWS_EXP_DIR}/ckpts/model.pth"
 tb_logs="${LOCAL_EXP_DIR}/tb_logs"
 aws s3 cp $tb_logs "${AWS_EXP_DIR}/tb_logs" --recursive
 
-bash exp/gpv_biatt_box_text/scripts/eval_w_refexp.sh $EXP_NAME
+bash exp/gpv_biatt_box_text/scripts/eval_w_refexp_test.sh $EXP_NAME
 
 eval_dir="${LOCAL_EXP_DIR}/eval"
 aws s3 cp $eval_dir "${AWS_EXP_DIR}/eval" --recursive

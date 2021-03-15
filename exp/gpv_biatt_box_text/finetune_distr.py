@@ -325,7 +325,7 @@ def train_worker(gpu,cfg):
 
     launch = True
     for epoch in range(last_epoch+1,training_epochs):
-        if gpu==0 and ((not launch) or cfg.training.run_eval_at_launch): # and epoch>0:
+        if gpu==0 and epoch%training.eval_every==0 and ((not launch) or cfg.training.run_eval_at_launch): # and epoch>0:
             for eval_subset in ['train','val']:
                 vqa_acc = 0
                 cls_acc = 0

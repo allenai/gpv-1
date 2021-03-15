@@ -143,6 +143,7 @@ training:
   run_vis_at_launch: True
   num_vis_samples: 15
   run_eval_at_launch: True
+  eval_every: 1
   num_val_samples: 
     coco_vqa: 20000
     coco_cap: 10000
