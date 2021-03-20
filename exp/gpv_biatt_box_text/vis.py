@@ -76,6 +76,8 @@ def vis_sample(sample,out_path):
 @hydra.main(config_path=f'../../configs',config_name=f"exp/vis")
 def main(cfg):
     index = io.load_json_object(cfg.index)
+    if 'RefCocop' in cfg.task_to_vis:
+        index = {k:v for k,v in index.items() if 'refcocop' in v}
     random.seed(cfg.seed)
     images_to_vis = random.sample(list(index.keys()),10)
 
@@ -94,6 +96,9 @@ def main(cfg):
             cfg.task_configs[task_name]['samples'][cfg.subset])
         
         for image_to_vis in images_to_vis:
+            if task_name not in index[image_to_vis]:
+                continue
+
             sample_ids = index[image_to_vis][task_name]
             html_dir = os.path.join(cfg.vis_dir,image_to_vis)
             if html_dir not in html_meta:
@@ -112,6 +117,10 @@ def main(cfg):
                     B = max(np.sum(relevance > 0.8),len(sample['boxes']))
                 else:
                     B = max(np.sum(relevance > 0.8),5)
+                
+                if task == 'RefCocop': 
+                    B=len(sample['boxes'])
+
                 sample['pred'] = {
                     'text':preds[str(sample[id_name])],
                     'boxes': boxes[:B],
@@ -147,7 +156,7 @@ def main(cfg):
                 col_dict = {
                     0: '',
                     1: '',
-                    2: html_writer.image_tag2(img_name),
+                    2: html_writer.image_tag_original_size(img_name),
                     3: ''
                 }
             else:

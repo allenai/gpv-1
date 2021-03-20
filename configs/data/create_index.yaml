@@ -1,13 +1,14 @@
-exp_name: create_index
+exp_name: create_index_refcocop
 output_dir: /home/tanmayg/Data/gpv/coco_exp/
 exp_dir: ${output_dir}/${exp_name}
 
 subset: test
 tasks: 
-  - coco_vqa
-  - coco_captioning
-  - coco_detection
-  - coco_classification
+  # - coco_vqa
+  # - coco_captioning
+  # - coco_detection
+  # - coco_classification
+  - refcocop
 
 defaults:
   - task: coco_learning_tasks

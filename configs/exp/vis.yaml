@@ -1,17 +1,18 @@
-exp_name: default
+exp_name: gpv_refcocop_perc_100_ft_from_gpv_all_gpv_split
 output_dir: /home/tanmayg/Data/gpv/coco_exp
 exp_dir: ${output_dir}/${exp_name}
 eval_dir: ${output_dir}/${exp_name}/eval
 seed: 0
-vis_dir: ${output_dir}/${exp_name}/vis_${seed}
+vis_dir: ${output_dir}/${exp_name}/vis_zs_refcoco_long_text_${seed}
 subset: test
 task_to_vis: 
-  - CocoVqa
-  - CocoCaptioning
-  - CocoDetection
-  - CocoClassification
+  - RefCocop
+  # - CocoVqa
+  # - CocoCaptioning
+  # - CocoDetection
+  # - CocoClassification
 
-index: /home/tanmayg/Data/gpv/coco_exp/create_index/index.json
+index: /home/tanmayg/Data/gpv/coco_exp/create_index_refcocop/index.json
 
 defaults:
   - task: coco_learning_tasks
