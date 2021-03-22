@@ -33,6 +33,7 @@ model:
   answering_type: generation
   hidden_dim: 768
   roi_head: True
+  relevance_conditioning: True
   detr:
     num_queries: 100
     num_classes: 1

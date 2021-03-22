@@ -1,0 +1,17 @@
+exp_name: data_stats
+output_dir: /home/tanmayg/Data/gpv/learning_phase_data
+exp_dir: ${output_dir}/${exp_name}
+
+hydra:
+  run:
+    dir: ${exp_dir}
+
+datasets:
+  - coco_captioning
+  - coco_detection
+  - coco_classification
+  - coco_vqa
+  - refcocop
+
+defaults:
+  - task: coco_learning_tasks

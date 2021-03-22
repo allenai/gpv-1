@@ -207,6 +207,9 @@ class GPV(nn.Module):
             return total_loss
 
     def condition_on_relevance(self,relevance_logits,fused_hs):
+        if self.cfg.relevance_conditioning is False:
+            return fused_hs 
+
         L,B,R,D = fused_hs.size()
         prob = relevance_logits.softmax(-1) # BxRx2
         prob = prob.view(B,R,2,1)
