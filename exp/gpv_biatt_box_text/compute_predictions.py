@@ -17,7 +17,7 @@ from utils.detr_misc import collate_fn as detr_collate_fn
 from torch.utils.data.dataloader import default_collate
 
 from data.coco.synonyms import SYNONYMS
-import exp.gpv_box_text.evaluators as evaluators
+from . import evaluators
 from .models.gpv import GPV
 from .models.losses import GPVCriterion
 from datasets.coco_multitask_dataset import CocoMultitaskDataset
