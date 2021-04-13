@@ -1,0 +1,16 @@
+hydra-core==1.0.0rc2
+ipython==7.16.1
+ipdb==0.13.3
+tensorboard==2.3.0
+opencv-python==4.2.0.32
+tqdm==4.48.2
+transformers==3.0.2
+nltk==3.5
+wget==3.2
+PyDictionary==2.0.1
+git+https://github.com/salaniz/pycocoevalcap
+lmdb==1.0.0
+git+https://github.com/ildoonet/pytorch-gradual-warmup-lr.git
+boto3==1.16.25
+pytorch_transformers==1.0.0
+imagesize==1.2.0
