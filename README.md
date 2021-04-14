@@ -39,9 +39,9 @@ git clone --recurse-submodules git@github.com:allenai/gpv.git
 ```
 
 # Download data
-Download splits, COCO images, and detr ckpts (modify setup_data.sh to provide the detr ckpt to download from s3)
+Download splits, detr ckpts, and COCO images. `data_dir` is the path to the directory where you want the data downloaded.  
 ```bash
-bash setup_data.sh
+bash setup_data.sh <data_dir>
 ```
 
 
