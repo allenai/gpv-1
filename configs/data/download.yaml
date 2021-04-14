@@ -1,5 +1,5 @@
 exp_name: learning_phase_data
-output_dir: /home/tanmayg/Data/gpv
+output_dir: data_dir
 exp_dir: ${output_dir}/${exp_name}
 
 hydra:
