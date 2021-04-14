@@ -1,4 +1,5 @@
 hydra-core==1.0.0rc2
+omegaconf==2.0.6
 ipython==7.16.1
 ipdb==0.13.3
 tensorboard==2.3.0
