@@ -1,8 +1,9 @@
 EXP_NAME=$1
-SUBSET=$2
+SUBSET=$2   # possible values: {test, testdev}
 
 echo "********************************************"
 echo "exp: ${EXP_NAME}"
+echo "split: coco (original_split)"
 echo "subset: ${SUBSET}"
 echo "********************************************"
 python -m exp.gpv_biatt_box_text.compute_vqa_test_predictions \
