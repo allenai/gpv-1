@@ -104,7 +104,7 @@ class CocoCapTestOriginalSplitDataset(CocoCaptioning):
     def __init__(self,cfg,subset):
         err_msg = 'Only original_split allowed'
         assert(cfg.data_split=='original_split'), err_msg
-        err_msg = 'Only test allowed'
+        err_msg = 'Only test and val allowed'
         assert(subset in ['test','val']), err_msg
         super().__init__(cfg,subset)
         if subset=='val':
