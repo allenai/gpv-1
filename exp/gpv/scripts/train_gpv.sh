@@ -4,9 +4,9 @@ NGPUS=$3
 DISTURL=$4
 EXP_NAME="gpv_${LEARNING_DATASETS}_${DATA_SPLIT}"
 LOCAL_EXP_DIR="/home/tanmayg/Data/gpv/coco_exp/${EXP_NAME}"
-AWS_EXP_DIR="s3://ai2-prior-gpv/paper_exps/${EXP_NAME}"
+AWS_EXP_DIR="s3://ai2-prior-gpv/paper_exps_detr_wo_resizing/${EXP_NAME}"
 
-DETR_CKPT="/home/tanmayg/Data/gpv/detr/detr_gpv_coco_256_1e-4_bs_16.pth"
+DETR_CKPT="/home/tanmayg/Data/gpv/detr/detr_gpv_coco_wo_resizing.pth"
 if [[ $DATA_SPLIT == "original_split" ]]
 then 
     DETR_CKPT="/home/tanmayg/Data/gpv/detr/detr-r50-e632da11.pth"
