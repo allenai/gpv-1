@@ -53,15 +53,15 @@ do
         echo "learning_datasets: ${learning_datasets}"
         echo "subset: ${subset}"
         echo "max_text_len: ${max_text_len}"
-        # python -m exp.gpv_biatt_box_text.compute_predictions \
-        #     exp_name=$EXP_NAME \
-        #     learning_datasets=$learning_datasets \
-        #     model.max_text_len=$max_text_len \
-        #     eval.task=$task \
-        #     eval.subset=$subset \
-        #     eval.predict=True \
-        #     eval.num_eval_batches=null \
-        #     model.roi_head=True \
-        #     model.detr_joiner.detr_dim=2304
+        python -m exp.gpv_biatt_box_text.compute_predictions \
+            exp_name=$EXP_NAME \
+            learning_datasets=$learning_datasets \
+            model.max_text_len=$max_text_len \
+            eval.task=$task \
+            eval.subset=$subset \
+            eval.predict=True \
+            eval.num_eval_batches=null \
+            model.roi_head=True \
+            model.detr_joiner.detr_dim=2304
     done
 done
