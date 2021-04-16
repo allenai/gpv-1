@@ -1,6 +1,7 @@
 EXP_NAME=$1
 TASK=$2     # possible values: { all, all_but_refexp, <task_name>}
 SUBSET=$3   # possible values: { val_test, <subset_name>}
+SPLIT=$4    # possible values: { original_split, gpv_split}
 
 if [[ $TASK == "all" ]]
 then
@@ -53,9 +54,10 @@ do
         echo "learning_datasets: ${learning_datasets}"
         echo "subset: ${subset}"
         echo "max_text_len: ${max_text_len}"
-        python -m exp.gpv_biatt_box_text.compute_predictions \
+        python -m exp.gpv.compute_predictions \
             exp_name=$EXP_NAME \
             learning_datasets=$learning_datasets \
+            task_configs.data_split=$SPLIT \
             model.max_text_len=$max_text_len \
             eval.task=$task \
             eval.subset=$subset \
