@@ -1,6 +1,6 @@
 BUCKET="https://ai2-prior-gpv.s3-us-west-2.amazonaws.com/public"
 
-# set to the location where you want to store downloaded data
+# set to the location where you want to store downloaded data (data_dir)
 GPV_DATA=$1
 
 # download and extract coco and coco-sce splits
