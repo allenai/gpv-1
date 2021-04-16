@@ -139,7 +139,7 @@ def update_samples_with_image_size(image_dir,samples):
     return samples
 
 
-@hydra.main(config_path=f'../../configs',config_name=f"exp/gpv_biatt_box_text_coco")
+@hydra.main(config_path=f'../../configs',config_name=f"exp/gpv")
 def main(cfg):
     eval_dir = os.path.join(cfg.exp_dir,'eval')
     io.mkdir_if_not_exists(eval_dir,recursive=True)
