@@ -1,10 +1,10 @@
 # @package task_configs
-image_dir: /home/tanmayg/Data/gpv/learning_phase_data/coco/images
+image_dir: ${data_dir}/learning_phase_data/coco/images
 image_size:
   H: 480
   W: 640
 read_image: True
-coco_feats: /home/tanmayg/Data/gpv/learning_phase_data/vg_det_feats
+coco_feats: ${data_dir}/learning_phase_data/vg_det_feats
 data_split: gpv_split
 
 coco_captioning:
@@ -12,9 +12,9 @@ coco_captioning:
   image_size: ${task_configs.image_size}
   read_image: ${task_configs.read_image}
   samples:
-    train: /home/tanmayg/Data/gpv/learning_phase_data/coco_captions/${task_configs.data_split}/train.json
-    val: /home/tanmayg/Data/gpv/learning_phase_data/coco_captions/${task_configs.data_split}/val.json
-    test: /home/tanmayg/Data/gpv/learning_phase_data/coco_captions/${task_configs.data_split}/test.json
+    train: ${data_dir}/learning_phase_data/coco_captions/${task_configs.data_split}/train.json
+    val: ${data_dir}/learning_phase_data/coco_captions/${task_configs.data_split}/val.json
+    test: ${data_dir}/learning_phase_data/coco_captions/${task_configs.data_split}/test.json
   max_samples:
     train: null
     val: null
@@ -27,9 +27,9 @@ coco_detection:
   image_size: ${task_configs.image_size}
   read_image: ${task_configs.read_image}
   samples:
-    train: /home/tanmayg/Data/gpv/learning_phase_data/coco_detection/${task_configs.data_split}/train.json
-    val: /home/tanmayg/Data/gpv/learning_phase_data/coco_detection/${task_configs.data_split}/val.json
-    test: /home/tanmayg/Data/gpv/learning_phase_data/coco_detection/${task_configs.data_split}/test.json
+    train: ${data_dir}/learning_phase_data/coco_detection/${task_configs.data_split}/train.json
+    val: ${data_dir}/learning_phase_data/coco_detection/${task_configs.data_split}/val.json
+    test: ${data_dir}/learning_phase_data/coco_detection/${task_configs.data_split}/test.json
   max_samples:
     train: null
     val: null
@@ -40,9 +40,9 @@ coco_classification:
   image_size: ${task_configs.image_size}
   read_image: ${task_configs.read_image}
   samples:
-    train: /home/tanmayg/Data/gpv/learning_phase_data/coco_classification/${task_configs.data_split}/train.json
-    val: /home/tanmayg/Data/gpv/learning_phase_data/coco_classification/${task_configs.data_split}/val.json
-    test: /home/tanmayg/Data/gpv/learning_phase_data/coco_classification/${task_configs.data_split}/test.json
+    train: ${data_dir}/learning_phase_data/coco_classification/${task_configs.data_split}/train.json
+    val: ${data_dir}/learning_phase_data/coco_classification/${task_configs.data_split}/val.json
+    test: ${data_dir}/learning_phase_data/coco_classification/${task_configs.data_split}/test.json
   max_samples:
     train: null
     val: null
@@ -53,10 +53,10 @@ coco_vqa:
   image_size: ${task_configs.image_size}
   read_image: ${task_configs.read_image}
   samples:
-    train: /home/tanmayg/Data/gpv/learning_phase_data/vqa/${task_configs.data_split}/train.json
-    val: /home/tanmayg/Data/gpv/learning_phase_data/vqa/${task_configs.data_split}/val.json
-    test: /home/tanmayg/Data/gpv/learning_phase_data/vqa/${task_configs.data_split}/test.json
-    testdev: /home/tanmayg/Data/gpv/learning_phase_data/vqa/${task_configs.data_split}/testdev.json
+    train: ${data_dir}/learning_phase_data/vqa/${task_configs.data_split}/train.json
+    val: ${data_dir}/learning_phase_data/vqa/${task_configs.data_split}/val.json
+    test: ${data_dir}/learning_phase_data/vqa/${task_configs.data_split}/test.json
+    testdev: ${data_dir}/learning_phase_data/vqa/${task_configs.data_split}/testdev.json
   max_samples:
     train: null
     val: null
@@ -71,9 +71,9 @@ refcocop:
   read_image: ${task_configs.read_image}
   train_percent: 100
   samples:
-    train: /home/tanmayg/Data/gpv/learning_phase_data/refcocop/train_${task_configs.refcocop.train_percent}.json
-    val: /home/tanmayg/Data/gpv/learning_phase_data/refcocop/val.json
-    test: /home/tanmayg/Data/gpv/learning_phase_data/refcocop/test.json
+    train: ${data_dir}/learning_phase_data/refcocop/train_${task_configs.refcocop.train_percent}.json
+    val: ${data_dir}/learning_phase_data/refcocop/val.json
+    test: ${data_dir}/learning_phase_data/refcocop/test.json
   max_samples:
     train: null
     val: null
