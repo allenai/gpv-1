@@ -19,7 +19,6 @@ class AnswerHead(nn.Module):
             vocab_embed = 0.1*torch.randn([len(self.vocab),hidden_dim])
         else:
             vocab_embed = torch.FloatTensor(vocab_embed)
-            print('Using precomputed vocab embeddings')
         
         self.vocab_embed = nn.Parameter(vocab_embed,requires_grad=False)
         self.classifier_transform = classifier_transform
@@ -47,7 +46,6 @@ class LinearAnswerHead(nn.Module):
             vocab_embed = 0.1*torch.randn([len(self.vocab),hidden_dim])
         else:
             vocab_embed = torch.FloatTensor(vocab_embed)
-            print('Using precomputed vocab embeddings')
         
         self.vocab_embed = nn.Parameter(vocab_embed,requires_grad=False)
         self.classifier = nn.Linear(
@@ -66,9 +64,7 @@ def build_answer_head(cfg,classifier_transform):
         vocab_embed = np.load(cfg.vocab_embed)
     
     vocab = io.load_json_object(cfg.vocab)
-    print('vocab len:',len(vocab))
     if cfg.answer_head=='linear':
-        print('Using linear answer head')
         return LinearAnswerHead(vocab,cfg.detr.hidden_dim,vocab_embed)
 
     return AnswerHead(
