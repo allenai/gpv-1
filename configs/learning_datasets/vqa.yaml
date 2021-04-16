@@ -1,4 +1,4 @@
-learning_datasets:
-  CocoVqa:
-    task_config: coco_vqa
-    name: coco_vqa
+# @package _group_
+CocoVqa:
+  task_config: coco_vqa
+  name: coco_vqa

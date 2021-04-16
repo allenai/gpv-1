@@ -1,7 +1,7 @@
-learning_datasets:
-  CocoCaptioning:
-    task_config: coco_captioning
-    name: coco_cap
-  CocoVqa:
-    task_config: coco_vqa
-    name: coco_vqa
+# @package _group_
+CocoCaptioning:
+  task_config: coco_captioning
+  name: coco_cap
+CocoVqa:
+  task_config: coco_vqa
+  name: coco_vqa

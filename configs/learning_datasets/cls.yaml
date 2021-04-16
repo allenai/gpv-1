@@ -1,4 +1,4 @@
-learning_datasets:
-  CocoClassification:
-    task_config: coco_classification
-    name: coco_cls
+# @package _group_
+CocoClassification:
+  task_config: coco_classification
+  name: coco_cls
