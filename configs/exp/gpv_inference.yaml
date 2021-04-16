@@ -1,0 +1,105 @@
+exp_name: gpv_inference
+output_dir: /home/tanmayg/Data/gpv_release/coco_exp
+exp_dir: ${output_dir}/${exp_name}
+data_dir: /home/tanmayg/Data/gpv_release
+ckpt: ${output_dir}/gpv_coco/ckpts/model.pth
+
+hydra:
+  run:
+    dir: ${output_dir}/${exp_name}
+
+defaults:
+  - task: coco_learning_tasks
+  - learning_datasets: vqa
+
+model:
+  pretr_detr: ${data_dir}/detr/detr_coco_sce.pth 
+  vocab: ${data_dir}/learning_phase_data/vocab/vocab.json
+  vocab_embed: ${data_dir}/learning_phase_data/vocab/vocab_embed.npy
+  max_pos_enc_len: 30
+  max_text_len: 20
+  answer_head: null
+  answering_type: generation
+  hidden_dim: 768
+  roi_head: True
+  relevance_conditioning: True
+  detr:
+    num_queries: 100
+    num_classes: 1
+    hidden_dim: 256
+    nheads: 8
+    num_encoder_layers: 6
+    num_decoder_layers: 6
+    backbone: resnet50
+    lr_backbone: 1e-5
+    position_embedding: sine
+    masks: False
+    dilation: False
+    dropout: 0.1
+    dim_feedforward: 2048
+    pre_norm: False
+    aux_loss: False
+    frozenbatchnorm: True
+    last_layer_only: True
+  detr_joiner:
+    detr_dim: 2304
+    out_dim: ${model.hidden_dim}
+  bert_joiner:
+    bert_dim: 768
+    out_dim: ${model.hidden_dim}
+  text_decoder:
+    hidden_dim: ${model.hidden_dim}
+    dropout: ${model.detr.dropout}
+    nheads: ${model.detr.nheads}
+    pos_enc: False
+    num_layers: 3
+  co_att:
+    visualization: False
+    bi_num_attention_heads: 16
+    bi_hidden_size: ${model.hidden_dim}
+    hidden_size: ${model.hidden_dim}
+    intermediate_size: 3072
+    output_size: ${model.hidden_dim}
+    attention_probs_dropout_prob: ${model.detr.dropout}
+    hidden_dropout_prob: ${model.detr.dropout}
+    hidden_act: gelu
+    v_hidden_size: ${model.hidden_dim}
+    v_intermediate_size: 3072
+    v_output_size: ${model.hidden_dim}
+    v_attention_probs_dropout_prob: ${model.detr.dropout}
+    v_hidden_dropout_prob: ${model.detr.dropout}
+    v_hidden_act: gelu
+    num_layers: 3
+  losses: ${losses}
+
+losses:
+  CaptionLoss:
+    name: caption_criterion
+    pad_idx: null
+    loss_wts:
+      loss_caption: 5e-2
+  
+  VqaLoss:
+    name: vqa_criterion
+    pad_idx: null
+    loss_wts:
+      loss_vqa: 1
+  
+  ClsLoss:
+    name: cls_criterion
+    pad_idx: null
+    loss_wts:
+      loss_cls: 1
+
+  Localization:
+    name: localization_criterion
+    cost_wts:
+      ce: 1
+      bbox: 5
+      giou: 2
+    loss_wts:
+      loss_ce: 1
+      loss_bbox: 5
+      loss_giou: 2
+    eos_coef: 0.1
+    num_classes: ${model.detr.num_classes}
