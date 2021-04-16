@@ -1,8 +1,9 @@
 exp_name: default
-output_dir: /home/tanmayg/Data/gpv/coco_exp
+output_dir: /home/tanmayg/Data/gpv_release/coco_exp
 exp_dir: ${output_dir}/${exp_name}
 tb_dir: ${exp_dir}/tb_logs
 ckpt_dir: ${exp_dir}/ckpts
+data_dir: /home/tanmayg/Data/gpv_release
 
 gpu: 0
 num_nodes: 1
@@ -24,9 +25,9 @@ defaults:
   - learning_datasets: vqa
 
 model:
-  pretr_detr: /home/tanmayg/Data/gpv/detr/detr_gpv_checkpoint0299.pth #/home/tanmayg/Data/gpv/coco_exp/detr-r50-e632da11.pth
-  vocab: /home/tanmayg/Data/gpv/learning_phase_data/vocab/vocab.json
-  vocab_embed: /home/tanmayg/Data/gpv/learning_phase_data/vocab/vocab_embed.npy
+  pretr_detr: ${task_configs.data_dir}/detr/detr_coco_sce.pth 
+  vocab: ${task_configs.data_dir}/learning_phase_data/vocab/vocab.json
+  vocab_embed: ${task_configs.data_dir}/learning_phase_data/vocab/vocab_embed.npy
   max_pos_enc_len: 30
   max_text_len: 20
   answer_head: null
@@ -53,7 +54,7 @@ model:
     frozenbatchnorm: True
     last_layer_only: True
   detr_joiner:
-    detr_dim: 256
+    detr_dim: 2304
     out_dim: ${model.hidden_dim}
   bert_joiner:
     bert_dim: 768
