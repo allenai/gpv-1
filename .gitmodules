@@ -1,6 +1,3 @@
-[submodule "third_party/clevr-dataset-gen"]
-	path = third_party/clevr-dataset-gen
-	url = git@github.com:allenai/clevr-dataset-gen.git
 [submodule "third_party/detection_metrics"]
 	path = third_party/detection_metrics
 	url = git@github.com:allenai/Object-Detection-Metrics.git
