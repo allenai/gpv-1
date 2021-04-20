@@ -29,6 +29,7 @@ bash setup_conda_env.sh
 ```
 
 ## Setup git
+Note - these are temporary instructions to be deleted later
 Download `vision_server` private ssh key and change permission (`rw- --- ---`) to allow git clone
 ```bash
 aws s3 cp s3://ai2-prior-gpv/vision_servers ~/.ssh/
@@ -74,3 +75,24 @@ bash exp/gpv/eval.sh <exp_name> <task_name> <subset> <split>
 - `<split>`: set to `original_split` (COCO) or `gpv_split` (COCO-SCE). 
 - `<subset>`: set to `train` or `val` for COCO (no `test` since COCO test annotations are hidden) and `train`, `val`, or `test` for COCO-SCE.
 
+# Train model
+
+We provide scripts for training GPV on one or more of the following task: 
+- `CocoClassification`
+- `CocoVqa`
+- `CocoDetection` (refered to as the Localization task in the paper)
+- `CocoCaptioning`
+
+Training GPV-1 involves 3 steps:
+- **Step 1:** Update the `configs/exp/gpv.yaml` file. Here are the key parameters to consider (the ones marked with a star can be set later in Step 3):
+    - `num_gpus_per_node` (set to 4 if you have 24GB GPUs, 2 for 48GB and 1 for 80GB)
+    - `dist_url`
+    - `output_dir` *
+    - `data_dir` *
+    - `model.pretr_detr` *
+- **Step 2:** Decide the dataset or combination of supported datasets to train the model. This is specified through one of the files in `configs/learning_datasets`. For instance, `all.yaml` trains on all 4 tasks, `cap_vqa.yaml` trains on `CocoCaptioning` & `CocoVqa`, and `cap.yaml` trains only on `CocoCaptioning`. If you don't see a dataset combination you may add one by modifying `all.yaml`. We refer to this as `<learning_datasets>`
+- **Step 3:** Launch training using `exp/gpv/scripts/train_gpv.sh` as follows:
+    ```
+    bash exp/gpv/scripts/train_gpv.sh <learning_datasets> <data_split> <exp_name> <output_dir> <data_dir>
+    ```
+    Note that training comprises of 2 sub-steps. First, the model is trained for `training.frozen_epochs` (in `configs/exp/gpv.yaml`) steps with DETR weights frozen. Then the model is finetuned end-to-end for a total of `training.num_epochs` epochs. `train_gpv.sh` executes both steps sequentially. 

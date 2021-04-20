@@ -479,7 +479,7 @@ def train_worker(gpu,cfg):
 
         
 
-@hydra.main(config_path=f'../../configs',config_name=f"exp/gpv_biatt_box_text_coco")
+@hydra.main(config_path=f'../../configs',config_name=f"exp/gpv")
 def main(cfg):
     io.mkdir_if_not_exists(cfg.ckpt_dir,recursive=True)
     io.mkdir_if_not_exists(cfg.tb_dir,recursive=True)
