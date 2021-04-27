@@ -205,6 +205,161 @@ class GPV(nn.Module):
         else:
             total_loss = self.criterion(outputs,targets)[0]
             return total_loss
+    
+    def forward_beam_search(self,images,queries,beam_size=1):
+        device = self.vision_token.device
+        outputs = self.detr(images)
+        outputs['detr_hs'] = self.detr_joiner(outputs['detr_hs'])
+
+        with torch.no_grad():
+            query_encodings, token_inputs = self.bert(queries,device)
+        
+        query_encodings = self.bert_joiner(query_encodings.detach())
+
+        lv_hs = query_encodings
+        vl_hs = outputs['detr_hs'][-1]
+        for layer in self.co_att_transformer:
+            lv_hs, vl_hs, _ = layer(
+                input_tensor1=lv_hs,
+                attention_mask1=None,
+                input_tensor2=vl_hs,
+                attention_mask2=None)
+        
+        B,Tl,D = lv_hs.size()
+        _,Tv,_ = vl_hs.size()
+        lv_hs = lv_hs.view(1,B,Tl,D)
+        vl_hs = vl_hs.view(1,B,Tv,D)
+        
+        # relevance prediction
+        relevance_logits = self.relevance_predictor(vl_hs)
+        outputs['pred_relevance_logits'] = \
+            outputs['pred_relevance_logits'] + relevance_logits[-1] #BxRx2
+        if self.cfg.detr.aux_loss:
+            for i,aux_outputs in enumerate(outputs['aux_outputs']):
+                aux_outputs['pred_relevance_logits'] = \
+                    aux_outputs['pred_relevance_logits'] + relevance_logits[i]
+        
+        # condition vl encoding on relevance prediction
+        vl_hs = self.condition_on_relevance(
+            outputs['pred_relevance_logits'],vl_hs)
+
+        # concat vl and lv to create a memory for text decoding
+        memory = torch.cat((vl_hs,lv_hs),2)
+        L,B,_,D = memory.size()
+
+        outputs['answers'], outputs['answer_probs'] = self.beam_decode_text(
+            memory,
+            K=beam_size)
+            
+        return outputs
+
+    def beam_decode_text(self,memory,K=25):
+        device = self.vision_token.device
+        L,B,_,D = memory.size()
+        cls_token_id = torch.LongTensor([self.word_to_idx['__cls__']]).cuda(device)
+        pad_token_id = torch.LongTensor([self.word_to_idx['__pad__']]).cuda(device)
+        stop_token_id = torch.LongTensor([self.word_to_idx['__stop__']]).cuda(device)
+        target_token_ids = cls_token_id.view(1,1,1,1).repeat(K,L,B,1)
+        seq_log_prob = torch.zeros([L,B,K]).cuda(device)
+        seqs = torch.zeros([K,L,B,self.cfg.max_text_len]).cuda(device)
+        seen_stop = torch.zeros([L,B,K]).bool()
+        for t in range(self.cfg.max_text_len-1):
+            ranking_scores = [None]*K
+            last_word_ids = [None]*K
+            for k1 in range(K):
+                target = self.answer_input_embedings(target_token_ids[k1])
+                answer_logits = self.decode_text(target,memory) # LxBxSxV
+                log_prob = nn.functional.log_softmax(answer_logits,-1)
+                last_word_log_prob = log_prob[:,:,-1] # LxBxV
+                top_last_word = torch.topk(last_word_log_prob,k=K,dim=-1) # LxBxK2
+                last_word_ids[k1] = top_last_word.indices # LxBxK2
+                #mask = (last_word_ids[k1]==pad_token_id[0]) + (last_word_ids[k1]==stop_token_id[0])
+                #mask = mask.float()
+                ranking_scores[k1] = self.update_seq_log_prob(seq_log_prob,top_last_word,seen_stop,k1)
+                #ranking_scores[k1] = seq_log_prob[:,:,k1].view(L,B,1) + \
+                    # top_last_word.values # LxBxK2 # (1-mask)*
+                if t==0 and k1 > 0:
+                    ranking_scores[k1] = ranking_scores[k1]*0-1e9
+
+            ranking_scores = torch.stack(ranking_scores,dim=2) # LxBxK1xK2
+            
+            candidates = self.select_candidates(ranking_scores,K=K)
+    
+            new_target_token_ids = 0*target_token_ids
+            new_seqs = torch.zeros([K,L,B,self.cfg.max_text_len]).long().cuda(device)
+            new_last_word_ids = torch.zeros(K,L,B,1).long().cuda(device)
+            new_seen_stop = torch.zeros([L,B,K]).bool()
+            for l in range(L):
+                for b in range(B):
+                    for k, (k1,k2,score) in enumerate(candidates[l][b]):
+                        new_target_token_ids[k,l,b] = target_token_ids[k1,l,b]
+                        new_last_word_ids[k,l,b,0] = last_word_ids[k1][l,b,k2]
+                        seq_log_prob[l,b,k] = score
+                        new_seqs[k,l,b,:t] = seqs[k1,l,b,:t]
+                        new_seqs[k,l,b,t] = new_last_word_ids[k,l,b,0]
+                        new_seen_stop[l,b,k] = seen_stop[l,b,k1] or new_last_word_ids[k,l,b,0]==self.word_to_idx['__stop__']
+                    
+            target_token_ids = torch.cat(
+                (new_target_token_ids,new_last_word_ids),
+                -1)
+            seqs = new_seqs
+            seen_stop = new_seen_stop
+
+        answer_logits = [None]*K
+        for k in range(K):
+            target = self.answer_input_embedings(target_token_ids[k])
+            answer_logits[k] = self.decode_text(target,memory) # LxBxSxV
+        
+        answers = [None]*B
+        answer_probs = [None]*B
+        for b in range(B):
+            answers[b] = [None]*K
+            answer_probs[b] = [None]*K
+            for k in range(K):
+                answers[b][k] = []
+                answer_probs[b][k] = seq_log_prob[-1,b,k].exp().item()
+                for t in range(self.cfg.max_text_len):
+                    word = self.vocab[seqs[k,-1,b,t]]
+                    if word in ['__stop__','__pad__']:
+                        break
+
+                    answers[b][k].append(word)
+
+        return answers, answer_probs
+    
+    def update_seq_log_prob(self,seq_log_prob,top_last_word,seen_stop,k1):
+        device = self.vision_token.device
+        L,B,K1 = seq_log_prob.size()
+        L,B,K2 = top_last_word.values.size()
+        ranking_scores = torch.zeros([L,B,K2]).cuda(device)
+        for l in range(L):
+            for b in range(B):
+                if seen_stop[l,b,k1] is True:
+                    print('Seen True')
+                    ranking_scores[l,b,:] = seq_log_prob[l,b,k1]
+                else:
+                    ranking_scores[l,b] = seq_log_prob[l,b,k1] + \
+                        top_last_word.values[l,b]
+        
+        return ranking_scores
+
+    def select_candidates(self,ranking_scores,K):
+        L,B,K1,K2 = ranking_scores.size()
+        candidates = [None]*L
+        for l in range(L):
+            candidates[l] = [None]*B
+            for b in range(B):
+                scores = []
+                for k1 in range(K1):
+                    for k2 in range(K2):
+                        scores.append((k1,k2,ranking_scores[l,b,k1,k2].item()))
+                
+                candidates[l][b] = sorted(
+                    scores,
+                    key=lambda x:x[-1],
+                    reverse=True)[:K]
+
+        return candidates
 
     def condition_on_relevance(self,relevance_logits,fused_hs):
         if self.cfg.relevance_conditioning is False:
