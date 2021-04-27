@@ -90,7 +90,7 @@ Training GPV-1 involves 3 steps:
     - `output_dir` *
     - `data_dir` *
     - `model.pretr_detr` *
-- **Step 2:** Decide the dataset or combination of supported datasets to train the model. This is specified through one of the files in `configs/learning_datasets`. For instance, `all.yaml` trains on all 4 tasks, `cap_vqa.yaml` trains on `CocoCaptioning` & `CocoVqa`, and `cap.yaml` trains only on `CocoCaptioning`. If you don't see a dataset combination you may add one by modifying `all.yaml`. We refer to this as `<learning_datasets>`
+- **Step 2:** Decide the dataset or combination of supported datasets to train the model. This is specified through one of the files in `configs/learning_datasets`. For instance, `all.yaml` trains on all 4 tasks, `cap_vqa.yaml` trains on `CocoCaptioning` & `CocoVqa`, and `cap.yaml` trains only on `CocoCaptioning`. If you don't see a dataset combination you may add one by modifying `all.yaml`. We refer to the name of the chosen yaml file by `<learning_datasets>`
 - **Step 3:** Launch training using `exp/gpv/scripts/train_gpv.sh` as follows:
     ```
     bash exp/gpv/scripts/train_gpv.sh <learning_datasets> <data_split> <exp_name> <output_dir> <data_dir>
