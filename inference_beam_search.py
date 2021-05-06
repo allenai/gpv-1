@@ -65,12 +65,17 @@ def main(cfg):
     inputs = [(cfg.inputs.img,cfg.inputs.query)]
 
     images, queries = preprocess(inputs,transforms)
-    outputs = model.forward_beam_search(images,queries,beam_size=5)
+    outputs = model.forward_beam_search(images,queries,beam_size=cfg.beam_size)
     prediction = decode_outputs(outputs)[0]
 
     prediction['boxes'] = prediction['boxes'][:cfg.num_output_boxes]
     prediction['relevance'] = prediction['relevance'][:cfg.num_output_boxes]
-    print(prediction)
+    
+    for pred_type, pred_value in prediction.items():
+        print('-'*80)
+        print(pred_type)
+        print('-'*80)
+        print(pred_value)
 
 if __name__=='__main__':
     main()

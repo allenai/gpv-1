@@ -77,7 +77,12 @@ def main(cfg):
 
     prediction['boxes'] = prediction['boxes'][:cfg.num_output_boxes]
     prediction['relevance'] = prediction['relevance'][:cfg.num_output_boxes]
-    print(prediction)
+    
+    for pred_type, pred_value in prediction.items():
+        print('-'*80)
+        print(pred_type)
+        print('-'*80)
+        print(pred_value)
 
 if __name__=='__main__':
     main()
