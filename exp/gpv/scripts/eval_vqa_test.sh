@@ -6,7 +6,7 @@ echo "exp: ${EXP_NAME}"
 echo "split: coco (original_split)"
 echo "subset: ${SUBSET}"
 echo "********************************************"
-python -m exp.gpv_biatt_box_text.compute_vqa_test_predictions \
+python -m exp.gpv.compute_vqa_test_predictions \
     exp_name=$EXP_NAME \
     task_configs.data_split=original_split \
     model.max_text_len=5 \
