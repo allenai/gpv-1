@@ -5,10 +5,11 @@ data_dir: /home/tanmayg/Data/gpv_release
 ckpt: ${output_dir}/gpv_coco/ckpts/model.pth
 
 inputs:
-  img: assets/busy_street.png
+  img: /home/tanmayg/Code/gpv/assets/busy_street.png
   query: Describe the image.
   
 num_output_boxes: 5
+beam_size: 5
 
 hydra:
   run:

@@ -25,9 +25,9 @@ defaults:
   - learning_datasets: vqa
 
 model:
-  pretr_detr: ${task_configs.data_dir}/detr/detr_coco_sce.pth 
-  vocab: ${task_configs.data_dir}/learning_phase_data/vocab/vocab.json
-  vocab_embed: ${task_configs.data_dir}/learning_phase_data/vocab/vocab_embed.npy
+  pretr_detr: ${data_dir}/detr/detr_coco_sce.pth 
+  vocab: ${data_dir}/learning_phase_data/vocab/vocab.json
+  vocab_embed: ${data_dir}/learning_phase_data/vocab/vocab_embed.npy
   max_pos_enc_len: 30
   max_text_len: 20
   answer_head: null
