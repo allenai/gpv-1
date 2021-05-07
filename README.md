@@ -1,4 +1,29 @@
-# General Purpose Vision
+# Towards General Purpose Vision Systems
+By [Tanmay Gupta](http://tanmaygupta.info/), [Amita Kamath](https://nlp.stanford.edu/~kamatha/), [Aniruddha Kembhavi](https://anikem.github.io/), and [Derek Hoiem](https://dhoiem.cs.illinois.edu/)
+
+![teaser](assets/teaser.png)
+
+# Overview
+Welcome to the official code base for GPV-I - a general purpose vision-language architecture that can learn and perform any task that requires bounding boxes or text prediction. We demonstrate the effectiveness of GPV-I by jointly training it on VQA, Captioning, Localization, and Classification tasks and achieveing favorable performance in comparison to specialized single-task models.
+
+**Available on Arxiv**: [https://arxiv.org/abs/2104.00743](https://arxiv.org/abs/2104.00743)
+
+**Project Page**: [https://prior.allenai.org/projects/gpv](https://prior.allenai.org/projects/gpv)
+
+**Demo**: [https://vision-explorer.allenai.org/general_purpose_vision](https://vision-explorer.allenai.org/general_purpose_vision)
+
+**BibTex**:
+```
+@article{Gupta2021GPV,
+  title={Towards General Purpose Vision Systems},
+  author={Tanmay Gupta and A. Kamath and Aniruddha Kembhavi and Derek Hoiem},
+  journal={ArXiv},
+  year={2021},
+  volume={abs/2104.00743}
+}
+```
+
+
 
 # Clone repository
 ```
@@ -27,7 +52,7 @@ Decide the following paths:
 `<data_dir>` and `<output_dir>` refer to these absolute paths in the instructions below. 
 
 # Download data
-Download splits, detr ckpts, and COCO images. `data_dir` is the path to the directory where you want the data downloaded.  
+To study generalization of concepts across skills, we created a new split of COCO annotations - COCO-SCE. To download the original and our new split, pretrained DETR checkpoints on both splits run the following:
 ```bash
 bash setup_data.sh <data_dir>
 ```
@@ -61,24 +86,7 @@ python -m inference_beam_search beam_size=5
 For greedy decoding either set beam_size to 1 in the previous command or run the following:
 ```
 python -m inference
-```
-
-# Evaluation
-We provide evaluation code for the following tasks:
-- `CocoClassification`
-- `CocoVqa`
-- `CocoDetection` (refered to as the Localization task in the paper)
-- `CocoCaptioning` 
-- `RefCocop` 
-
-Run the following command to evaluate on one or a set of tasks
-```
-bash exp/gpv/eval.sh <exp_name> <task_name> <subset> <split> <output_dir> <data_dir>
-```
-- `<exp_name>`: name of the experiment directory (`<output_dir>/<exp_name>`) where the model to be evaluated lives.
-- `<task_name>`: set to `all` to evaluate on all 5 tasks, `all_but_refexp` to evalute on all tasks excepts RefCocop, or the name of tasks to evaluate only on that task.
-- `<subset>`: set to `train` or `val` for COCO (no `test` since COCO test annotations are hidden) and `train`, `val`, or `test` for COCO-SCE.
-- `<split>`: set to `original_split` (COCO) or `gpv_split` (COCO-SCE). 
+``` 
 
 # Train model
 
@@ -102,7 +110,26 @@ Training GPV-1 involves 3 steps:
     ```
     Note that training comprises of 2 sub-steps. First, the model is trained for `training.frozen_epochs` (in `configs/exp/gpv.yaml`) steps with DETR weights frozen. Then the model is finetuned end-to-end for a total of `training.num_epochs` epochs. `train_gpv.sh` executes both steps sequentially. `model.pretr_detr` is selected automatically in [train.sh](exp/gpv/scripts/train.sh) based on `<data_split>`.
 
-Visualize train and val losses and metrics on tensorboard:
+- **Step 4:** Visualize loss, metrics, and learning rate on tensorboard:
+    ```
+    tensorboard --logdir=<output_dir> --bind_all
+    ```
+
+- **Step 5:** Predictions are visualized on a small set of train and validation set samples every few thousand iterations (`training.vis_step`). These are available at `<output_dir>/<exp_name>/training_visualizations`
+
+# Evaluation
+We provide evaluation code for the following tasks:
+- `CocoClassification`
+- `CocoVqa`
+- `CocoDetection` (refered to as the Localization task in the paper)
+- `CocoCaptioning` 
+- `RefCocop` 
+
+Run the following command to evaluate on one or a set of tasks
 ```
-tensorboard --logdir=<output_dir> --bind_all
+bash exp/gpv/eval.sh <exp_name> <task_name> <subset> <split> <output_dir> <data_dir>
 ```
+- `<exp_name>`: name of the experiment directory (`<output_dir>/<exp_name>`) where the model to be evaluated lives.
+- `<task_name>`: set to `all` to evaluate on all 5 tasks, `all_but_refexp` to evalute on all tasks excepts RefCocop, or the name of tasks to evaluate only on that task.
+- `<subset>`: set to `train` or `val` for COCO (no `test` since COCO test annotations are hidden) and `train`, `val`, or `test` for COCO-SCE.
+- `<split>`: set to `original_split` (COCO) or `gpv_split` (COCO-SCE).
