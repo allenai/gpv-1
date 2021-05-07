@@ -7,7 +7,7 @@ from nltk.tokenize import word_tokenize
 import imagesize
 import torch
 
-from exp.gpv_box_text import evaluators
+from exp.gpv import evaluators
 from data.coco.synonyms import SYNONYMS
 import utils.io as io
 

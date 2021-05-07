@@ -22,7 +22,6 @@ from pytorch_transformers.optimization import WarmupLinearSchedule
 from .models.gpv import GPV
 from .models.losses import GPVCriterion
 from .metrics import *
-from exp.gpv_box_text import evaluators
 from datasets.coco_multitask_dataset import CocoMultitaskDataset
 from utils.bbox_utils import vis_bbox
 import utils.io as io
