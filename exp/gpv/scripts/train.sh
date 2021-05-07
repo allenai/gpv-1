@@ -21,7 +21,7 @@ python -m exp.gpv.train_distr \
     training.freeze=True
 
 # Path to the checkpoint saved from the previous step
-CKPT="${OUTPUT_DIR}/${EXP_NAME}/model.pth"
+CKPT="${OUTPUT_DIR}/${EXP_NAME}/ckpts/model.pth"
 
 # Finetune entire model including DETR weights
 python -m exp.gpv.train_distr \
