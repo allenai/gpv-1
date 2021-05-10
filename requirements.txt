@@ -2,6 +2,8 @@ hydra-core==1.0.0rc2
 omegaconf==2.0.1rc11
 ipython==7.16.1
 ipdb==0.13.3
+jupyterlab==3.0.15
+ipywidgets==7.6.3
 tensorboard==2.3.0
 opencv-python==4.2.0.32
 tqdm==4.48.2
