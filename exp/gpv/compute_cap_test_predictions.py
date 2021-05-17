@@ -17,7 +17,6 @@ from utils.detr_misc import collate_fn as detr_collate_fn
 from torch.utils.data.dataloader import default_collate
 
 from data.coco.synonyms import SYNONYMS
-import exp.gpv_box_text.evaluators as evaluators
 from .models.gpv import GPV
 from .models.losses import GPVCriterion
 from datasets.coco_datasets import CocoCapTestOriginalSplitDataset
@@ -83,7 +82,7 @@ def update_samples_with_image_size(image_dir,samples):
     return samples
 
 
-@hydra.main(config_path=f'../../configs',config_name=f"exp/gpv_biatt_box_text_coco")
+@hydra.main(config_path=f'../../configs',config_name=f"exp/gpv")
 def main(cfg):
     eval_dir = os.path.join(cfg.exp_dir,'eval')
     io.mkdir_if_not_exists(eval_dir,recursive=True)
