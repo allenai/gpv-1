@@ -324,7 +324,7 @@ def train_worker(gpu,cfg):
 
     launch = True
     for epoch in range(last_epoch+1,training_epochs):
-        if gpu==0 and ((not launch) or cfg.training.run_eval_at_launch): # and epoch>0:
+        if gpu==0 and ((not launch) or cfg.training.run_eval_at_launch):
             for eval_subset in ['train','val']:
                 vqa_acc = 0
                 cls_acc = 0
@@ -378,6 +378,21 @@ def train_worker(gpu,cfg):
                 
                 if eval_subset=='val':
                     model_selection_metric = vqa_acc+cider+det_map+cls_acc
+
+                    if model_selection_metric > best_metric:
+                        print('Saving checkpoint ...')
+                        best_metric = model_selection_metric
+                        best_epoch = epoch
+                        torch.save({
+                            'model': model.state_dict(),
+                            'optimizer': optimizer.state_dict(),
+                            'epoch': epoch,
+                            'iter': it,
+                            'step': step,
+                            'lr': lr_scheduler.get_last_lr(),
+                            'model_selection_metric': model_selection_metric,
+                            'warmup_scheduler': warmup_scheduler.state_dict() if cfg.training.lr_linear_decay else None,
+                        }, os.path.join(cfg.ckpt_dir,'model.pth'))
 
         if cfg.multiprocessing_distributed:
             sampler['train'].set_epoch(epoch)
@@ -449,21 +464,21 @@ def train_worker(gpu,cfg):
             if gpu==0 and step%(10*cfg.training.log_step)==0:
                 print('Exp:',cfg.exp_name)
                     
-            if gpu==0 and step%cfg.training.ckpt_step==0:
-                if model_selection_metric > best_metric:
-                    print('Saving checkpoint ...')
-                    best_metric = model_selection_metric
-                    best_epoch = epoch
-                    torch.save({
-                        'model': model.state_dict(),
-                        'optimizer': optimizer.state_dict(),
-                        'epoch': epoch,
-                        'iter': it,
-                        'step': step,
-                        'lr': lr_scheduler.get_last_lr(),
-                        'model_selection_metric': model_selection_metric,
-                        'warmup_scheduler': warmup_scheduler.state_dict() if cfg.training.lr_linear_decay else None,
-                    }, os.path.join(cfg.ckpt_dir,'model.pth'))
+            # if gpu==0 and step%cfg.training.ckpt_step==0:
+            #     if model_selection_metric > best_metric:
+            #         print('Saving checkpoint ...')
+            #         best_metric = model_selection_metric
+            #         best_epoch = epoch
+            #         torch.save({
+            #             'model': model.state_dict(),
+            #             'optimizer': optimizer.state_dict(),
+            #             'epoch': epoch,
+            #             'iter': it,
+            #             'step': step,
+            #             'lr': lr_scheduler.get_last_lr(),
+            #             'model_selection_metric': model_selection_metric,
+            #             'warmup_scheduler': warmup_scheduler.state_dict() if cfg.training.lr_linear_decay else None,
+            #         }, os.path.join(cfg.ckpt_dir,'model.pth'))
 
             step += 1
             launch=False
