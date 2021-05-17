@@ -127,7 +127,7 @@ We provide evaluation code for the following tasks:
 
 Run the following command to evaluate on one or a set of tasks
 ```
-bash exp/gpv/eval.sh <exp_name> <task_name> <subset> <split> <output_dir> <data_dir>
+bash exp/gpv/scripts/eval.sh <exp_name> <task_name> <subset> <split> <output_dir> <data_dir>
 ```
 - `<exp_name>`: name of the experiment directory (`<output_dir>/<exp_name>`) where the model to be evaluated lives.
 - `<task_name>`: set to `all` to evaluate on all 5 tasks, `all_but_refexp` to evalute on all tasks excepts RefCocop, or the name of tasks to evaluate only on that task.
