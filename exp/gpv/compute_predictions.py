@@ -189,12 +189,18 @@ def main(cfg):
     if cfg.eval.task=='RefCocop':
         metrics['everything'] = evaluator.evaluate()
     else:
-        for novelty in ['everything','seen_concepts','held_out_concepts']:
+        novelty_types = ['everything','seen_concepts','held_out_concepts']
+        if cfg.task_configs.data_split=='original_split':
+            novelty_types = ['everything']
+        
+        for novelty in novelty_types:
             metrics[novelty] = evaluator.evaluate(novelty)
 
     io.dump_json_object(
         metrics,
-        os.path.join(eval_dir,f'{cfg.eval.task}_{cfg.eval.subset}_metrics.json'))
+        os.path.join(
+            eval_dir,
+            f'{cfg.eval.task}_{cfg.task_configs.data_split}_{cfg.eval.subset}_metrics.json'))
 
     boxes_h5py.close()
 
