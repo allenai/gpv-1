@@ -89,22 +89,7 @@ def create_coco_vocab_mask(model,use_syns=False):
     L = len(model.vocab)
     mask = -10000*np.ones([L],dtype=np.float32)
     tokens = []
-    # categories = {
-    #     "banana": 728,
-    #     "baseball bat": 799,
-    #     "bottle": 2912,
-    #     "broccoli": 670,
-    #     "donut": 523,
-    #     "hot dog": 452,
-    #     "keyboard": 750,
-    #     "laptop": 1232,
-    #     "train": 1281,
-    #     "tv": 1231,
-    #     "__cls__": 0,
-    #     "__stop__": 0,
-    #     "__pad__": 0}
     for coco_cls in SYNONYMS:
-    #for coco_cls in categories:
         syns = [coco_cls]
         if use_syns is True:
             syns = SYNONYMS[coco_cls]
