@@ -196,7 +196,7 @@ def cls_metrics(model,dataloader,cfg):
 
     cls_evaluator = evaluators.CocoClassification(samples,predictions,None)
     metrics = cls_evaluator.evaluate()
-    return metrics['accuracy']['all']
+    return metrics['overall_accuracy']
 
 
 def update_samples_with_image_size(image_dir,samples):
