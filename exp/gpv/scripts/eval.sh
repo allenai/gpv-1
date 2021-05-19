@@ -64,10 +64,6 @@ do
             task_configs.data_split=$SPLIT \
             model.max_text_len=$max_text_len \
             eval.task=$task \
-            eval.subset=$subset \
-            eval.predict=True \
-            eval.num_eval_batches=null \
-            model.roi_head=True \
-            model.detr_joiner.detr_dim=2304
+            eval.subset=$subset
     done
 done
