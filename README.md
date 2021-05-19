@@ -23,15 +23,12 @@ Welcome to the official code base for GPV-I - a general purpose vision-language 
 }
 ```
 
-
-
 # Clone repository
 ```
 git clone --recurse-submodules git@github.com:allenai/gpv.git
 ```
 
 # Install dependencies
-
 Create conda environment
 ```bash
 conda create -n gpv python=3.6 -y
@@ -44,7 +41,6 @@ bash setup_conda_env.sh
 ```
 
 # Paths
-
 Decide the following paths:
 - `<data_dir>`: This is the directory where images and annotations will be saved
 - `<output_dir>`: This is where outputs of various experiments will be saved including model checkpoints, visualization, inference and evaluation results
@@ -58,7 +54,6 @@ bash setup_data.sh <data_dir>
 ```
 
 # Download model
-
 | Model | Split | Download |
 |-------|-------|------|
 | GPV | COCO | [Link](https://ai2-prior-gpv.s3-us-west-2.amazonaws.com/public/trained_models/gpv_all_original_split/ckpts/model.pth) |
@@ -89,7 +84,6 @@ python -m inference
 ``` 
 
 # Train model
-
 We provide scripts for training GPV on one or more of the following tasks: 
 - `CocoClassification`
 - `CocoVqa`
@@ -132,4 +126,6 @@ bash exp/gpv/scripts/eval.sh <exp_name> <task_name> <subset> <split> <output_dir
 - `<exp_name>`: name of the experiment directory (`<output_dir>/<exp_name>`) where the model to be evaluated lives.
 - `<task_name>`: set to `all` to evaluate on all 5 tasks, `all_but_refexp` to evalute on all tasks excepts RefCocop, or the name of tasks to evaluate only on that task.
 - `<subset>`: set to `train` or `val` for COCO (no `test` since COCO test annotations are hidden) and `train`, `val`, or `test` for COCO-SCE.
-- `<split>`: set to `original_split` (COCO) or `gpv_split` (COCO-SCE).
+- `<split>`: set to `original_split` (COCO) or `gpv_split` (COCO-SCE). This flag is unused for `RefCocop`.
+
+Predictions are saved at `<output_dir>/<exp_name>/eval`.
