@@ -8,6 +8,8 @@ mkdir -p $GPV_DATA
 mkdir $GPV_DATA/learning_phase_data
 wget $BUCKET/coco_original_and_sce_splits.zip -P $GPV_DATA/learning_phase_data/
 unzip $GPV_DATA/learning_phase_data/coco_original_and_sce_splits.zip -d $GPV_DATA/learning_phase_data/
+wget $BUCKET/refcocop.zip -P $GPV_DATA/learning_phase_data/
+unzip $GPV_DATA/learning_phase_data/refcocop.zip -d $GPV_DATA/learning_phase_data/
 
 # download detr pretrained on coco and coco-sce
 mkdir $GPV_DATA/detr
