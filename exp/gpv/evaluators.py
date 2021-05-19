@@ -90,7 +90,9 @@ class CocoClassification(CocoEval):
         absent = 0
         correct = Counter()
         total = Counter()
-
+        overall_correct = 0
+        overall_total = 0
+        overall_accuracy = 0
         for k,sample in self.samples.items():
             if novelty is not 'everything' and \
                 self.sample_novelty(sample)!=novelty:
@@ -103,19 +105,23 @@ class CocoClassification(CocoEval):
             pred_answer = self.predictions[k]['answer'].lower()
             gt_answer =  SYNONYMS[sample['answer']] #[sample['answer']]
             if pred_answer in gt_answer:
-                correct['all'] += 1
+                overall_correct += 1
                 correct[sample['answer']] += 1
 
-            total['all'] += 1
+            overall_total += 1
             total[sample['answer']] += 1
 
         eps = 1e-6
         accuracy = {k:round(correct[k]/(eps+total[k]),4) for k in total}
+        overall_accuracy = round(overall_correct/(eps+overall_total),4)
         metrics = {
             'correct': correct,
+            'overall_correct': overall_correct,
             'total': total,
+            'overall_total': overall_total,
             'absent': absent,
             'accuracy': accuracy,
+            'overall_accuracy': overall_accuracy,
         }
 
         return metrics
