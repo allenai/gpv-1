@@ -282,7 +282,7 @@ def train_worker(gpu,cfg):
         # since a checkpoint is saved only if it is has the best metric so far
         best_metric = model_selection_metric
         best_epoch = last_epoch
-        print(f'Loading checkpoint at epoch: {last_epoch}')
+        print(f'Loading checkpoint at the end of epoch {last_epoch}')
 
     lr_scheduler = torch.optim.lr_scheduler.MultiStepLR(
         optimizer,
@@ -382,12 +382,11 @@ def train_worker(gpu,cfg):
                     if model_selection_metric > best_metric:
                         print('Saving checkpoint ...')
                         best_metric = model_selection_metric
-                        best_epoch = epoch
+                        best_epoch = epoch-1
                         torch.save({
                             'model': model.state_dict(),
                             'optimizer': optimizer.state_dict(),
-                            'epoch': epoch,
-                            'iter': it,
+                            'epoch': best_epoch,
                             'step': step,
                             'lr': lr_scheduler.get_last_lr(),
                             'model_selection_metric': model_selection_metric,
@@ -397,7 +396,6 @@ def train_worker(gpu,cfg):
         if cfg.multiprocessing_distributed:
             sampler['train'].set_epoch(epoch)
 
-        print(gpu,len(dataloaders['train']))
         for it,data in enumerate(dataloaders['train']):
             imgs, queries, targets = data
             imgs = imgs.to(torch.device(gpu))
@@ -463,23 +461,7 @@ def train_worker(gpu,cfg):
 
             if gpu==0 and step%(10*cfg.training.log_step)==0:
                 print('Exp:',cfg.exp_name)
-                    
-            # if gpu==0 and step%cfg.training.ckpt_step==0:
-            #     if model_selection_metric > best_metric:
-            #         print('Saving checkpoint ...')
-            #         best_metric = model_selection_metric
-            #         best_epoch = epoch
-            #         torch.save({
-            #             'model': model.state_dict(),
-            #             'optimizer': optimizer.state_dict(),
-            #             'epoch': epoch,
-            #             'iter': it,
-            #             'step': step,
-            #             'lr': lr_scheduler.get_last_lr(),
-            #             'model_selection_metric': model_selection_metric,
-            #             'warmup_scheduler': warmup_scheduler.state_dict() if cfg.training.lr_linear_decay else None,
-            #         }, os.path.join(cfg.ckpt_dir,'model.pth'))
-
+                
             step += 1
             launch=False
 
