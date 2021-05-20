@@ -64,7 +64,7 @@ def make_predictions(model,dataloader,samples,cfg):
         results,
         os.path.join(
             eval_dir,
-            f'{cfg.eval.task}_original_split_{cfg.eval.subset}_results.json'))
+            f'{cfg.eval.task}_{cfg.task_configs.data_split}_{cfg.eval.subset}_results.json'))
 
 
 def update_samples_with_image_size(image_dir,samples):

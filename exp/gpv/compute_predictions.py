@@ -82,7 +82,7 @@ def make_predictions(model,dataloader,samples,cfg):
         predictions,
         os.path.join(
             eval_dir,
-            f'{cfg.eval.task}_{cfg.eval.subset}_predictions.json'))
+            f'{cfg.eval.task}_{cfg.task_configs.data_split}_{cfg.eval.subset}_predictions.json'))
 
 
 def create_coco_vocab_mask(model,use_syns=False):
@@ -158,10 +158,10 @@ def main(cfg):
             make_predictions(model,dataloader,samples,cfg)
 
     predictions = io.load_json_object(os.path.join(
-        eval_dir,f'{cfg.eval.task}_{cfg.eval.subset}_predictions.json'))
+        eval_dir,f'{cfg.eval.task}_{cfg.task_configs.data_split}_{cfg.eval.subset}_predictions.json'))
 
     boxes_h5py = h5py.File(os.path.join(
-        eval_dir,f'{cfg.eval.task}_{cfg.eval.subset}_boxes.h5py'),'r')
+        eval_dir,f'{cfg.eval.task}_{cfg.task_configs.data_split}_{cfg.eval.subset}_boxes.h5py'),'r')
 
     if cfg.eval.task in ['CocoDetection','RefCocop']:
         samples = update_samples_with_image_size(
