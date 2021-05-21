@@ -17,4 +17,4 @@ wget $BUCKET/detr/detr_coco.pth -P $GPV_DATA/detr/
 wget $BUCKET/detr/detr_coco_sce.pth -P $GPV_DATA/detr/
 
 # Download coco images
-python -m data.coco.download download_coco_images_only=True output_dir=$GPV_DATA
+python -m data.coco.download download_coco_images_only=True download_coco_test_images=True output_dir=$GPV_DATA
