@@ -1,7 +1,7 @@
 exp_name: gpv_inference
-output_dir: /home/tanmayg/Data/gpv_release/coco_exp
+output_dir: path_to_output_dir # e.g. $HOME/Data/gpv_output_dir
 exp_dir: ${output_dir}/${exp_name}
-data_dir: /home/tanmayg/Data/gpv_release
+data_dir: path_to_data_dir # e.g $HOME/Data/gpv_data_dir
 ckpt: ${output_dir}/gpv_coco/ckpts/model.pth
 
 hydra:

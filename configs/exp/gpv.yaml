@@ -1,9 +1,9 @@
 exp_name: default
-output_dir: path_to_output_dir # e.g. $HOME/Data/gpv_release/coco_exp
+output_dir: path_to_output_dir # e.g. $HOME/Data/gpv_output_dir
 exp_dir: ${output_dir}/${exp_name}
 tb_dir: ${exp_dir}/tb_logs
 ckpt_dir: ${exp_dir}/ckpts
-data_dir: path_to_data_dir # e.g $HOME/Data/gpv_release
+data_dir: path_to_data_dir # e.g $HOME/Data/gpv_data_dir
 
 gpu: 0
 num_nodes: 1
