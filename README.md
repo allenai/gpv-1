@@ -25,7 +25,7 @@ Welcome to the official code base for GPV-I - a general purpose vision-language 
 
 # Clone repository
 ```
-git clone --recurse-submodules git@github.com:allenai/gpv.git
+git clone --recurse-submodules git@github.com:allenai/gpv-1.git
 ```
 
 # Install dependencies
