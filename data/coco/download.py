@@ -11,7 +11,10 @@ def main(cfg):
     if cfg.download_coco_images_only:
         data_type_dir = os.path.join(cfg.exp_dir,'coco/images')
         io.mkdir_if_not_exists(data_type_dir,recursive=True)
-        for url in cfg.urls['coco']['images'].values():
+        for imgsubset,url in cfg.urls['coco']['images'].items():
+            if not cfg.download_coco_test_images and imgsubset=='test2014':
+                continue
+            
             filename = url.split('/')[-1]
             filepath = os.path.join(data_type_dir,filename)
             print(filepath)

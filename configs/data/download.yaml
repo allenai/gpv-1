@@ -7,13 +7,14 @@ hydra:
     dir: ${exp_dir}
 
 download_coco_images_only: False
+download_coco_test_images: False
 
 urls:
   coco:
     images:
       train2014: http://images.cocodataset.org/zips/train2014.zip
       val2014: http://images.cocodataset.org/zips/val2014.zip
-      #test2014: http://images.cocodataset.org/zips/test2014.zip
+      test2014: http://images.cocodataset.org/zips/test2014.zip
     anno:
       trainval2014: http://images.cocodataset.org/annotations/annotations_trainval2014.zip
       test2014: http://images.cocodataset.org/annotations/image_info_test2014.zip 
