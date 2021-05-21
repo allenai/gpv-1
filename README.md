@@ -139,3 +139,18 @@ bash exp/gpv/scripts/eval_<cap/vqa>_test.sh <exp_name> <subset> <output_dir> <da
 
 # Finetune GPV-1
 GPV-1 can be finetuned on your data. To evaluate GPV-1's learning efficiency and extent of catastrophic forgetting, we provide scripts to finetune GPV on `RefCocop`. These scripts may also be used as an example of finetuning GPV on your own data.
+
+To finetune pretrained GPV-1 on RefCocop, run the following
+```
+bash exp/gpv/scripts/ft_gpv.sh <ckpt> <train_perc> <output_dir> <data_dir>
+```
+- `<ckpt>`: absolute path of the GPV-1 checkpoint that you want to initialize the training with
+- `<train_perc>`: percentage of the full `Refcocop` training set to use for learning. Supported values include 1, 2, 5, 10, 25, 50, 75, 100. These subsampled subsets can be found in `<data_dir>/learning_phase_data/refcocop/` 
+
+The evaluation script described in the previous section works for `Refcocop` evaluation as well. 
+
+# A note on GPU memory requirements
+- The current hyperparameters are chosen for training GPV-1 with a batch size of 120 samples. This leads to significant GPU memory requirements during training (e.g. 5-7 days of training on four 24GB GPUs). 
+- While training is memory intensive, evaluation is easily run on a single GPU (you may further reduce batch size for evaluation using `eval.batch_size` flag in [gpv.yaml](configs/exp/gpv.yaml) file if working with low memory GPUs). 
+- It may be possible to trade-off GPU memory with training time by reducing training batch size using the `training.batch_size` flag. However, this might require tuning the hyperparameters to achieve competitive performance.
+-  Finally, if working with COCO-like data or when finetuning from a pretrained GPV-1 checkpoint, you might be able to get good performance with low GPU memory requirements by freezing the DETR backbone (`training.freeze=True`) and only training the remaining modules.
