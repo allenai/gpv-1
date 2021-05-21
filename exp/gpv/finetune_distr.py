@@ -1,28 +1,20 @@
 import os
 import nltk
-import h5py
 import hydra
 import torch
-import torch.nn as nn
 from torch.utils.tensorboard import SummaryWriter
 import torch.multiprocessing as mp
 import torch.distributed as dist
-import itertools
-import imagesize
 import numpy as np
 import skimage.io as skio
 from utils.detr_misc import collate_fn as detr_collate_fn
-from torch.utils.data.dataloader import default_collate
 from torch.utils.data import DataLoader
-from nltk.tokenize.treebank import TreebankWordDetokenizer
-from tqdm import tqdm
 from warmup_scheduler import GradualWarmupScheduler
 from pytorch_transformers.optimization import WarmupLinearSchedule
 
 from .models.gpv import GPV
 from .models.losses import GPVCriterion
 from .metrics import *
-from exp.gpv_box_text import evaluators
 from datasets.coco_multitask_dataset import CocoMultitaskDataset
 from utils.bbox_utils import vis_bbox
 import utils.io as io
@@ -327,10 +319,6 @@ def train_worker(gpu,cfg):
     for epoch in range(last_epoch+1,training_epochs):
         if gpu==0 and epoch%cfg.training.eval_every==0 and ((not launch) or cfg.training.run_eval_at_launch): # and epoch>0:
             for eval_subset in ['train','val']:
-                vqa_acc = 0
-                cls_acc = 0
-                cider = 0
-                det_map = 0
                 refexp_map = 0
                 for dataset_name in dataloaders[eval_subset].dataset.datasets:
                     print(f'Evaluating on {dataset_name} {eval_subset}')
@@ -342,40 +330,7 @@ def train_worker(gpu,cfg):
                         shuffle=False,
                         collate_fn=detr_collate_fn)
                     
-                    if dataset_name=='coco_vqa':
-                        with torch.no_grad():
-                            vqa_acc = vqa_accuracy(model,eval_dataloader,cfg)
-
-                        print(f'Dataset: {dataset_name} | Subset: {eval_subset} | Epoch: {epoch} | Acc: {vqa_acc}')
-                        writer.add_scalar(f'vqa_acc/{eval_subset}',vqa_acc,step)
-
-                    elif dataset_name=='coco_cls':
-                        with torch.no_grad():
-                            cls_acc = cls_metrics(model,eval_dataloader,cfg)
-
-                        print(f'Dataset: {dataset_name} | Subset: {eval_subset} | Epoch: {epoch} | Acc: {cls_acc}')
-                        writer.add_scalar(f'cls_acc/{eval_subset}',cls_acc,step)
-                    
-                    elif dataset_name=='coco_cap':
-                        with torch.no_grad():
-                            metrics = cap_metrics(model,eval_dataloader,cfg)
-                            cider = metrics['Cider']
-                            bleu1 =  metrics['Bleu1']
-                            bleu4 =  metrics['Bleu4']
-
-                        print(f'Dataset: {dataset_name} | Subset: {eval_subset} | Epoch: {epoch} | Bleu1: {bleu1} | Bleu4: {bleu4} | Cider: {cider}')
-                        writer.add_scalar(f'cap_metrics/{eval_subset}/cider',cider,step)
-                        writer.add_scalar(f'cap_metrics/{eval_subset}/bleu1',bleu1,step)
-                        writer.add_scalar(f'cap_metrics/{eval_subset}/bleu4',bleu4,step)
-                    
-                    elif dataset_name=='coco_det':
-                        with torch.no_grad():
-                            det_map = det_metrics(model,eval_dataloader,cfg)
-
-                        print(f'Dataset: {dataset_name} | Subset: {eval_subset} | Epoch: {epoch} | mAP: {det_map}')
-                        writer.add_scalar(f'det_map/{eval_subset}',det_map,step)
-                    
-                    elif dataset_name=='refcocop':
+                    if dataset_name=='refcocop':
                         with torch.no_grad():
                             refexp_map = refexp_metrics(model,eval_dataloader,cfg)
 
@@ -386,17 +341,16 @@ def train_worker(gpu,cfg):
                         print(f'Eval not implemented for {dataset_name}')
                 
                 if eval_subset=='val':
-                    model_selection_metric = vqa_acc+cider+det_map+refexp_map+cls_acc
+                    model_selection_metric = refexp_map
 
                     if model_selection_metric > best_metric:
                         print('Saving checkpoint ...')
                         best_metric = model_selection_metric
-                        best_epoch = epoch
+                        best_epoch = epoch-1
                         torch.save({
                             'model': model.state_dict(),
                             'optimizer': optimizer.state_dict(),
-                            'epoch': epoch,
-                            'iter': -1,
+                            'epoch': best_epoch,
                             'step': step,
                             'lr': lr_scheduler.get_last_lr(),
                             'model_selection_metric': model_selection_metric,
@@ -472,22 +426,6 @@ def train_worker(gpu,cfg):
 
             if gpu==0 and step%(10*cfg.training.log_step)==0:
                 print('Exp:',cfg.exp_name)
-                    
-            # if gpu==0 and step%cfg.training.ckpt_step==0:
-            #     if model_selection_metric > best_metric:
-            #         print('Saving checkpoint ...')
-            #         best_metric = model_selection_metric
-            #         best_epoch = epoch
-            #         torch.save({
-            #             'model': model.state_dict(),
-            #             'optimizer': optimizer.state_dict(),
-            #             'epoch': epoch,
-            #             'iter': it,
-            #             'step': step,
-            #             'lr': lr_scheduler.get_last_lr(),
-            #             'model_selection_metric': model_selection_metric,
-            #             'warmup_scheduler': warmup_scheduler.state_dict() if cfg.training.lr_linear_decay else None,
-            #         }, os.path.join(cfg.ckpt_dir,'model.pth'))
 
             step += 1
             launch=False
@@ -502,7 +440,7 @@ def train_worker(gpu,cfg):
 
         
 
-@hydra.main(config_path=f'../../configs',config_name=f"exp/gpv_biatt_box_text_ft")
+@hydra.main(config_path=f'../../configs',config_name=f"exp/gpv_ft")
 def main(cfg):
     io.mkdir_if_not_exists(cfg.ckpt_dir,recursive=True)
     io.mkdir_if_not_exists(cfg.tb_dir,recursive=True)
