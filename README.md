@@ -52,6 +52,7 @@ To study generalization of concepts across skills, we created a new split of COC
 ```bash
 bash setup_data.sh <data_dir>
 ```
+Note - If you intend to run experiments only on COCO-SCE, you can skip downloading COCO test images and save time and disk space by setting `download_coco_test_images=False` in `setup_data.sh`
 
 # Download model
 | Model | Split | Download |
@@ -128,4 +129,13 @@ bash exp/gpv/scripts/eval.sh <exp_name> <task_name> <subset> <split> <output_dir
 - `<subset>`: set to `train` or `val` for COCO (no `test` since COCO test annotations are hidden) and `train`, `val`, or `test` for COCO-SCE.
 - `<split>`: set to `original_split` (COCO) or `gpv_split` (COCO-SCE). This flag is unused for `RefCocop`.
 
-Predictions are saved at `<output_dir>/<exp_name>/eval`.
+Predictions and metrics are saved at `<output_dir>/<exp_name>/eval`.
+
+If you wish to evaluate captioning or vqa performnce on the COCO test images, we provide scripts to generate predictions in the format expected by their respective official evaluation servers ([Captioning eval server](https://competitions.codalab.org/competitions/3221), [VQA eval server](https://eval.ai/web/challenges/challenge-page/830/overview)). You may run these as follows:
+```
+bash exp/gpv/scripts/eval_<cap/vqa>_test.sh <exp_name> <subset> <output_dir> <data_dir>
+```
+`<subset>` may be `test` or `testdev` for VQA and `val` or `test` for Captioning. 
+
+# Finetune GPV-1
+GPV-1 can be finetuned on your data. To evaluate GPV-1's learning efficiency and extent of catastrophic forgetting, we provide scripts to finetune GPV on `RefCocop`. These scripts may also be used as an example of finetuning GPV on your own data.
