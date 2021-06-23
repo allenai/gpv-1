@@ -196,6 +196,51 @@ class CocoClassification(GenericCocoDataset):
             return query,targets
 
 
+class WebQa(GenericCocoDataset):
+    def __init__(self,cfg,subset):
+        super().__init__(cfg,subset)
+
+    def read_image(self,image_subset,image_id):
+        img_dir = os.path.join(self.cfg.image_dir)
+        img_path = os.path.join(
+            img_dir, str(image_id))
+        img = skio.imread(img_path)
+        if len(img.shape)==2:
+            img = np.tile(np.expand_dims(img,2),(1,1,3))
+        else:
+            img = img[:,:,:3]
+
+        original_image_size = img.shape[:2] # HxW
+        resized_image_size = resize(img,(self.imh,self.imw),anti_aliasing=True)
+        return resized_image_size, original_image_size
+
+    #def __getitem__(self,i):
+    #    outputs = super().__getitem__(i)
+    #    outputs[-1]['task'] = 'WebQa'
+    #    return outputs
+
+    def __getitem__(self,i):
+        sample = self.samples[i]
+
+        if self.cfg.read_image is True:
+            image_subset = sample['image']['subset']
+            image_id = sample['image']['image_id']
+            x,y,w,h = sample['boxes']
+            img, original_image_size = self.read_image(
+                image_subset,image_id)
+            img = (255*img).astype(np.uint8)
+            img = self.transforms(img)
+        
+        query = sample['query']
+
+        targets = {'answer': sample['answer'], 'task': 'WebQa'}
+
+        if self.cfg.read_image is True:
+            return img, query, targets
+        else:
+            return query,targets
+
+
 class RefCocop(GenericCocoDataset):
     def __init__(self,cfg,subset):
         super().__init__(cfg,subset)

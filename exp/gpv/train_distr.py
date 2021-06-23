@@ -373,6 +373,11 @@ def train_worker(gpu,cfg):
                         print(f'Dataset: {dataset_name} | Subset: {eval_subset} | Epoch: {epoch} | mAP: {det_map}')
                         writer.add_scalar(f'det_map/{eval_subset}',det_map,step)
                     
+                    elif dataset_name=='webqa':
+                        with torch.no_grad():
+                            webqa_acc = webqa_metrics(model,eval_dataloader, cfg)
+                        print(f'Dataset: {dataset_name} | Subset: {eval_subset} | Epoch: {epoch} | Acc: {webqa_acc}')
+                        writer.add_scalar(f'webqa_acc/{eval_subset}',webqa_acc,step)
                     else:
                         print(f'Eval not implemented for {dataset_name}')
                 

@@ -11,3 +11,6 @@ CocoClassification:
 CocoVqa:
   task_config: coco_vqa
   name: coco_vqa
+WebQa:
+  task_config: webqa
+  name: webqa

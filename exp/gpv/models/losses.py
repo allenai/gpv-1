@@ -83,6 +83,20 @@ class ClsLoss(AnswerClassification):
         return {'loss_cls': loss}
 
 
+class WebQaLoss(AnswerClassification):
+    def forward(self,outputs,targets):
+        idx_filtered_targets = [(
+            i,t) for i,t in enumerate(targets) if 'answer' in t \
+                and t['task']=='WebQa']
+        if len(idx_filtered_targets)==0:
+            return {'loss_webqa':None}
+        idxs, filtered_targets = zip(*idx_filtered_targets)
+        idxs = list(idxs)
+        filtered_logits = outputs['answer_logits'][:,idxs]
+        loss = self.compute_ce_loss(filtered_logits,filtered_targets)
+        return {'loss_webqa': loss}
+
+
 class Localization(nn.Module):
     def __init__(self,cfg):
         super().__init__()

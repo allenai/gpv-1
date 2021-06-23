@@ -9,8 +9,14 @@ import torch
 
 from exp.gpv import evaluators
 from data.coco.synonyms import SYNONYMS
+from data.web.synonyms import WEB_SYNONYMS
 import utils.io as io
 
+# Hacky, please overlook for now
+import json
+web_vocab = json.load(open('/home/amitak/gpv-1/data/learning_phase_data/vocab/all_queries_verified.json'))
+WEB_SYNONYMS.update({k: [k] for k in web_vocab if k not in WEB_SYNONYMS})
+WEB_SYNONYMS.update({w: [w] for k in web_vocab for w in k.split() if w not in WEB_SYNONYMS})
 
 def vqa_accuracy(model,dataloader,cfg):
     samples = dataloader.dataset.samples
@@ -144,6 +150,30 @@ def create_coco_vocab_mask(model,use_syns=True):
     return tokens, mask
 
 
+def create_web_vocab_mask(model,use_syns=False):
+    L = len(model.vocab)
+    mask = -10000*np.ones([L],dtype=np.float32)
+    tokens = []
+    for web_ans in WEB_SYNONYMS:
+        syns = [web_ans]
+        if use_syns is True:
+            syns = WEB_SYNONYMS[web_ans]
+        
+        for syn in syns:
+            for token in word_tokenize(syn):
+                if token in model.word_to_idx:
+                    idx = model.word_to_idx[token]
+                    mask[idx] = 0
+                    tokens.append(token)
+    
+    for token in ['__stop__','__pad__']:
+        idx = model.word_to_idx[token]
+        mask[idx] = 0
+        tokens.append(token)
+
+    return tokens, mask
+
+
 def cls_metrics(model,dataloader,cfg):
     samples = dataloader.dataset.samples
     device = f'cuda:{cfg.gpu}'
@@ -196,6 +226,61 @@ def cls_metrics(model,dataloader,cfg):
 
     cls_evaluator = evaluators.CocoClassification(samples,predictions,None)
     metrics = cls_evaluator.evaluate()
+    return metrics['overall_accuracy']
+
+
+def webqa_metrics(model,dataloader,cfg):
+    samples = dataloader.dataset.samples
+    device = f'cuda:{cfg.gpu}'
+    word_to_idx = model.word_to_idx
+    idx_to_word = [None]*len(word_to_idx)
+    for word,idx in word_to_idx.items():
+        idx_to_word[idx] = word
+
+    tokens,vocab_mask = create_web_vocab_mask(model)
+    vocab_mask = torch.FloatTensor(vocab_mask).cuda(cfg.gpu)
+
+    model.eval()
+    
+    detokenizer = TreebankWordDetokenizer()
+    predictions = {}
+    total = 0
+    end_eval = False
+    for data in tqdm(dataloader):
+        imgs, queries, targets = data
+        imgs = imgs.to(torch.device(device))
+        for t in targets:
+            for k,v in t.items():
+                if not isinstance(v,str):
+                    t[k] = v.cuda(device)
+        
+        answer_tokens,answer_token_ids = model.encode_answers(targets)
+        for i,t in enumerate(targets):
+            t['answer_token_ids'] = answer_token_ids[i,1:]
+
+        outputs = model(imgs,queries,answer_token_ids=None,vocab_mask=vocab_mask)
+
+        topk_answers = torch.topk(outputs['answer_logits'][-1],k=1,dim=-1)
+        topk_answer_ids = topk_answers.indices.detach().cpu().numpy()
+        pred_answers = model.token_ids_to_words(topk_answer_ids[:,:,0])
+        B = len(pred_answers)
+        for b in range(B):
+            if total >= cfg.training.num_val_samples['webqa']:
+                end_eval = True
+                break
+            
+            pred_answer = detokenizer.detokenize([w for w in pred_answers[b] if 
+                w not in ['__stop__','__pad__']])
+            sample_id = samples[total]['id']
+            predictions[str(sample_id)] = {'answer': pred_answer}
+                
+            total += 1
+        
+        if end_eval:
+            break
+
+    webqa_evaluator = evaluators.WebQa(samples,predictions,None)
+    metrics = webqa_evaluator.evaluate()
     return metrics['overall_accuracy']
 
 

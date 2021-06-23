@@ -1,11 +1,12 @@
 # @package task_configs
-image_dir: ${data_dir}/learning_phase_data/coco/images
+#image_dir: ${data_dir}/learning_phase_data/coco/images
+image_dir: /home/amitak/gpv1web-bing/images
 image_size:
   H: 480
   W: 640
 read_image: True
 coco_feats: ${data_dir}/learning_phase_data/vg_det_feats
-data_split: gpv_split
+data_split: web_all
 
 coco_captioning:
   image_dir: ${task_configs.image_dir}
@@ -74,6 +75,19 @@ refcocop:
     train: ${data_dir}/learning_phase_data/refcocop/train_${task_configs.refcocop.train_percent}.json
     val: ${data_dir}/learning_phase_data/refcocop/val.json
     test: ${data_dir}/learning_phase_data/refcocop/test.json
+  max_samples:
+    train: null
+    val: null
+    test: null
+
+webqa:
+  image_dir: ${task_configs.image_dir}
+  image_size: ${task_configs.image_size}
+  read_image: ${task_configs.read_image}
+  samples:
+    train: ${data_dir}/learning_phase_data/webqa/${task_configs.data_split}/minval.json
+    val: ${data_dir}/learning_phase_data/webqa/${task_configs.data_split}/minval.json
+    test: ${data_dir}/learning_phase_data/webqa/${task_configs.data_split}/minval.json
   max_samples:
     train: null
     val: null

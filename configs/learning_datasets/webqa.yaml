@@ -1,0 +1,4 @@
+# @package _group_
+WebQa:
+  task_config: webqa
+  name: webqa

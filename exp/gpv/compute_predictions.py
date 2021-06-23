@@ -17,6 +17,7 @@ from utils.detr_misc import collate_fn as detr_collate_fn
 from torch.utils.data.dataloader import default_collate
 
 from data.coco.synonyms import SYNONYMS
+from data.web.synonyms import WEB_SYNONYMS
 from . import evaluators
 from .models.gpv import GPV
 from .models.losses import GPVCriterion
@@ -26,13 +27,21 @@ from utils.detr_misc import collate_fn
 import utils.io as io
 from utils.html_writer import HtmlWriter
 
+# Hacky, please overlook for now
+import json
+web_vocab = json.load(open('/home/amitak/gpv-1/data/learning_phase_data/vocab/all_queries_verified.json'))
+WEB_SYNONYMS.update({k: [k] for k in web_vocab if k not in WEB_SYNONYMS})
+WEB_SYNONYMS.update({w: [w] for k in web_vocab for w in k.split() if w not in WEB_SYNONYMS})
 
 def make_predictions(model,dataloader,samples,cfg):
     vocab_mask=None
     if cfg.eval.task=='CocoClassification':
         tokens,vocab_mask = create_coco_vocab_mask(model)
         vocab_mask = torch.FloatTensor(vocab_mask).cuda(cfg.gpu)
-
+    elif cfg.eval.task=='WebQa':
+        tokens,vocab_mask = create_web_vocab_mask(model)
+        vocab_mask = torch.FloatTensor(vocab_mask).cuda(cfg.gpu)
+    
     eval_dir = os.path.join(cfg.exp_dir,'eval')
     boxes_h5py = h5py.File(os.path.join(
         eval_dir,f'{cfg.eval.task}_{cfg.eval.subset}_boxes.h5py'),'w')
@@ -107,7 +116,31 @@ def create_coco_vocab_mask(model,use_syns=False):
         tokens.append(token)
 
     return tokens, mask
+
+
+def create_web_vocab_mask(model,use_syns=False):
+    L = len(model.vocab)
+    mask = -10000*np.ones([L],dtype=np.float32)
+    tokens = []
+    for web_ans in WEB_SYNONYMS:
+        syns = [web_ans]
+        if use_syns is True:
+            syns = WEB_SYNONYMS[web_ans]
+        
+        for syn in syns:
+            for token in word_tokenize(syn):
+                if token in model.word_to_idx:
+                    idx = model.word_to_idx[token]
+                    mask[idx] = 0
+                    tokens.append(token)
     
+    for token in ['__stop__','__pad__']:
+        idx = model.word_to_idx[token]
+        mask[idx] = 0
+        tokens.append(token)
+
+    return tokens, mask
+
 
 def update_samples_with_image_size(image_dir,samples):
     for sample in tqdm(samples):

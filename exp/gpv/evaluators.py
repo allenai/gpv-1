@@ -2,6 +2,7 @@ import numpy as np
 from collections import Counter
 from tqdm import tqdm
 from data.coco.synonyms import SYNONYMS
+from data.web.synonyms import WEB_SYNONYMS
 from third_party.pycocoevalcap.eval import *
 import third_party.detection_metrics.lib.Evaluator as det_evaluator
 
@@ -11,8 +12,14 @@ task_to_id = {
     'CocoCaptioning': 'cap_id',
     'CocoDetection': 'id',
     'RefCocop': 'sent_id',
+    'WebQa': 'id',
 }
 
+# Hacky, please overlook for now
+import json
+web_vocab = json.load(open('/home/amitak/gpv-1/data/learning_phase_data/vocab/all_queries_verified.json'))
+WEB_SYNONYMS.update({k: [k] for k in web_vocab if k not in WEB_SYNONYMS})
+WEB_SYNONYMS.update({w: [w] for k in web_vocab for w in k.split() if w not in WEB_SYNONYMS})
 
 class CocoEval():
     def __init__(self,samples,predictions,boxes,task):
@@ -104,6 +111,51 @@ class CocoClassification(CocoEval):
 
             pred_answer = self.predictions[k]['answer'].lower()
             gt_answer =  SYNONYMS[sample['answer']] #[sample['answer']]
+            if pred_answer in gt_answer:
+                overall_correct += 1
+                correct[sample['answer']] += 1
+
+            overall_total += 1
+            total[sample['answer']] += 1
+
+        eps = 1e-6
+        accuracy = {k:round(correct[k]/(eps+total[k]),4) for k in total}
+        overall_accuracy = round(overall_correct/(eps+overall_total),4)
+        metrics = {
+            'correct': correct,
+            'overall_correct': overall_correct,
+            'total': total,
+            'overall_total': overall_total,
+            'absent': absent,
+            'accuracy': accuracy,
+            'overall_accuracy': overall_accuracy,
+        }
+
+        return metrics
+
+
+class WebQa(CocoEval):
+    def __init__(self,samples,predictions,boxes,task='WebQa'):
+        super().__init__(samples,predictions,boxes,task)
+
+    def evaluate(self,novelty='everything'):
+        absent = 0
+        correct = Counter()
+        total = Counter()
+        overall_correct = 0
+        overall_total = 0
+        overall_accuracy = 0
+        for k,sample in self.samples.items():
+            if novelty is not 'everything' and \
+                self.sample_novelty(sample)!=novelty:
+                continue
+                
+            if k not in self.predictions:
+                absent += 1
+                continue
+
+            pred_answer = self.predictions[k]['answer'].lower()
+            gt_answer =  WEB_SYNONYMS[sample['answer']] #[sample['answer']]
             if pred_answer in gt_answer:
                 overall_correct += 1
                 correct[sample['answer']] += 1

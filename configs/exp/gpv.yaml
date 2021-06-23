@@ -1,9 +1,9 @@
-exp_name: default
-output_dir: path_to_output_dir # e.g. $HOME/Data/gpv_output_dir
+exp_name: web_all_trial
+output_dir: /home/amitak/makebranch/gpv-1/checkpoints # e.g. $HOME/Data/gpv_output_dir
 exp_dir: ${output_dir}/${exp_name}
 tb_dir: ${exp_dir}/tb_logs
 ckpt_dir: ${exp_dir}/ckpts
-data_dir: path_to_data_dir # e.g $HOME/Data/gpv_data_dir
+data_dir: /home/amitak/makebranch/gpv-1/data # e.g $HOME/Data/gpv_data_dir
 
 gpu: 0
 num_nodes: 1
@@ -22,12 +22,12 @@ hydra:
 
 defaults:
   - task: coco_learning_tasks
-  - learning_datasets: vqa
+  - learning_datasets: webqa
 
 model:
   pretr_detr: ${data_dir}/detr/detr_coco_sce.pth 
-  vocab: ${data_dir}/learning_phase_data/vocab/vocab.json
-  vocab_embed: ${data_dir}/learning_phase_data/vocab/vocab_embed.npy
+  vocab: ${data_dir}/learning_phase_data/vocab/combined_vocab_all.json
+  vocab_embed: ${data_dir}/learning_phase_data/vocab/combined_vocab_embed_all.npy
   max_pos_enc_len: 30
   max_text_len: 20
   answer_head: null
@@ -116,6 +116,12 @@ losses:
     eos_coef: 0.1
     num_classes: ${model.detr.num_classes}
 
+  WebQaLoss:
+    name: webqa_criterion
+    pad_idx: null
+    loss_wts:
+      loss_webqa: 1
+
 training:
   ckpt: null # ${ckpt_dir}/model.pth
   freeze: False # freeze Detr layers
@@ -150,9 +156,10 @@ training:
     coco_cap: 10000
     coco_det: 10000
     coco_cls: 10000
+    webqa: 10000
 
 eval:
-  task: CocoVqa
+  task: WebQa
   ckpt: ${exp_dir}/ckpts/model.pth
   batch_size: 20
   num_workers: 20
