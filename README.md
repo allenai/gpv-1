@@ -103,6 +103,10 @@ Training GPV-1 involves 3 steps:
     ```
     bash exp/gpv/scripts/train.sh <learning_datasets> <data_split> <exp_name> <output_dir> <data_dir>
     ```
+    - `<learning_datasets>`: set to `all` to train on all 4 tasks or to the name of one of the yaml files in `configs/learning_datasets` which specifies the tasks to train on 
+    - `<exp_name>`: name of the experiment directory (`<output_dir>/<exp_name>`). This is where model checkpoints, visualization, and other experiment related data will be saved 
+    - `<data_split>`: set to `original_split` (COCO) or `gpv_split` (COCO-SCE)
+
     Note that training comprises of 2 sub-steps. First, the model is trained for `training.frozen_epochs` (in `configs/exp/gpv.yaml`) steps with DETR weights frozen. Then the model is finetuned end-to-end for a total of `training.num_epochs` epochs. `train_gpv.sh` executes both steps sequentially. `model.pretr_detr` is selected automatically in [train.sh](exp/gpv/scripts/train.sh) based on `<data_split>`.
 
 - **Step 4:** Visualize loss, metrics, and learning rate on tensorboard:
